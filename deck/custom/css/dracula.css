@@ -1,0 +1,122 @@
+/* Dracula Theme v1.2.5
+ *
+ * https://github.com/dracula/dracula-theme
+ *
+ * Copyright 2016, All rights reserved
+ *
+ * Code licensed under the MIT license
+ * http://zenorocha.mit-license.org
+ *
+ * @author Denis Ciccale <dciccale@gmail.com>
+ * @author Zeno Rocha <hi@zenorocha.com>
+ */
+
+
+.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 0.5em;
+  background: #282a36;
+}
+
+.hljs-built_in,
+.hljs-selector-tag,
+.hljs-section,
+.hljs-link {
+  color: #8be9fd;
+}
+
+.hljs-keyword {
+  color: #ff79c6;
+}
+
+.hljs,
+.hljs-subst {
+  color: #f8f8f2;
+}
+
+.hljs-title {
+  color: #50fa7b;
+}
+
+.hljs-string {
+  color: #f1fa8c;
+}
+
+.hljs-number {
+  color: #bd93f9;
+}
+
+.hljs-variable {
+  color: #50fa7b;
+}
+
+.hljs-template-variable {
+  color: #50fa7b;
+}
+
+.hljs-variable-2 {
+  color: white;
+}
+
+.hljs-def {
+  color: #50fa7b;
+}
+
+.hljs-operator {
+  color: #ff79c6;
+}
+
+.hljs-keyword {
+  color: #ff79c6;
+}
+
+.hljs-atom { color: #bd93f9; }
+.hljs-meta { color: #6272a4; }
+.hljs-tag { color: #ff79c6; }
+.hljs-template-tag { color: #ff79c6; }
+.hljs-attribute { color: #50fa7b; }
+.hljs-qualifier { color: #50fa7b; }
+.hljs-property { color: #66d9ef; }
+.hljs-builtin { color: #50fa7b; }
+.hljs-variable-3 { color: #ffb86c; }
+.hljs-title { color: #f1fa8c; }
+.hljs-type { color: #01C2C2; }
+.hljs-class > .hljs-title { color: #01C2C2; }
+
+#
+
+.hljs-name,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition,
+.hljs-template-tag,
+.hljs-template-variable {
+  color: #ff79c6;
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-deletion {
+  color: #6272a4;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-doctag,
+.hljs-type,
+.hljs-name,
+.hljs-strong {
+  font-weight: bold;
+}
+
+.hljs-literal,
+.hljs-number {
+  color: #bd93f9;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
