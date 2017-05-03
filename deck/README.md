@@ -67,6 +67,25 @@ Underlying impl is `cats.free.Free` which has stack-safety built in.
 
 ---
 
+## Freestyle Goals : Boilerplate reduction
+
+```diff
++ @module trait App {
++  val exerciseOp: ExerciseOp
++  val userOp: UserOp
++  val userProgressOp: UserProgressOp
++  val githubOp: GithubOp
++ }
+- type C01[A] = Coproduct[ExerciseOp, UserOp, A]
+- type C02[A] = Coproduct[UserProgressOp, C01, A]
+- type ExercisesApp[A] = Coproduct[GithubOp, C02, A]
+- val exerciseAndUserInterpreter: C01 ~> M = exerciseOpsInterpreter or userOpsInterpreter
+- val userAndUserProgressInterpreter: C02 ~> M = userProgressOpsInterpreter or exerciseAndUserInterpreter
+- val allInterpreters: ExercisesApp ~> M = githubOpsInterpreter or userAndUserProgressInterpreter
+```
+
+---
+
 ## Freestyle Goals : Predictable
 
 Declare your algebras
@@ -215,6 +234,31 @@ def loadUser[F[_]]
 
 ---
 
+## Freestyle Goals : Easy parallelism
+
+All `FS[_]` ops are `FreeApplicative` and potentially parallelizable
+
+```scala
+@free trait UserInput {
+  def getText: FS[String]
+}
+
+@free trait Validation {
+  def minSize(s: String, n: Int): FS[Boolean]
+  def hasNumber(s: String): FS[Boolean]
+}
+
+def program[F[_]](implicit U: UserInput[F], V : Validation[F]) = {
+  import U._, V._
+  for {
+    userText <- getText
+    isValid <- (minSize(userText, 10) |@| hasNumber(userText)).map(_ && _)
+  } yield isValid
+}
+```
+
+---
+
 ## Freestyle Goals : Boilerplate reduction
 
 1. Approachable to newcomers <!-- .element: class="fragment" -->
@@ -303,10 +347,6 @@ def program[F[_]](implicit I : Interacts[F], D : DataSource[F]): FreeS[F, Unit] 
 
 ---
 
-## Hinting parallelism
-
----
-
 ## @tagless representations
 
 ---
@@ -318,6 +358,78 @@ def program[F[_]](implicit I : Interacts[F], D : DataSource[F]): FreeS[F, Unit] 
 ## Modules
 
 - iota
+
+---
+
+## Avoid using transformers
+
+Error
+
+```scala
+import freestyle.effects.error._
+import freestyle.effects.error.implicits._
+
+val boom = new RuntimeException("BOOM")
+
+type Target[A] = Either[Throwable, A]
+
+def shortCircuit[F[_]: ErrorM] =
+  for {
+    a <- FreeS.pure(1)
+    b <- ErrorM[F].error[Int](boom)
+    c <- FreeS.pure(1)
+  } yield a + b + c
+
+shortCircuit[ErrorM.Op].interpret[Target]
+// res0: Target[Int] = Left(java.lang.RuntimeException: BOOM)
+```
+
+---
+
+## Avoid using transformers
+
+Option
+
+```scala
+import freestyle.effects.option._
+import freestyle.effects.option.implicits._
+
+def programNone[F[_]: OptionM] =
+  for {
+    a <- FreeS.pure(1)
+    b <- OptionM[F].option[Int](None)
+    c <- FreeS.pure(1)
+  } yield a + b + c
+
+programNone[OptionM.Op].interpret[Option]
+// res0: Option[Int] = None
+```
+
+---
+
+## Avoid using transformers
+
+Validation
+
+```scala
+sealed trait ValidationError
+case class NotValid(explanation: String) extends ValidationError
+
+val vl = validation[ValidationError]
+import vl.implicits._
+
+type ValidationResult[A] = State[List[ValidationError], A]
+
+def programErrors[F[_]: vl.ValidationM] =
+  for {
+    _ <- vl.ValidationM[F].invalid(NotValid("oh no"))
+    errs <- vl.ValidationM[F].errors
+    _ <- vl.ValidationM[F].invalid(NotValid("this won't be in errs"))
+  } yield errs
+
+programErrors[vl.ValidationM.Op].interpret[ValidationResult].runEmpty
+// res5: cats.Eval[(List[ValidationError], List[ValidationError])] = cats.Eval$$anon$8@115029c1
+```
 
 ---
 
@@ -357,6 +469,12 @@ def program[F[_]](implicit I : Interacts[F], D : DataSource[F]): FreeS[F, Unit] 
 
 ---
 
+## Inspired by
+
+-
+
+---
+
 ### Features ###
 
 | *Error Handling* | *When to use*               | *Java* | *Kotlin* | *Scala* |
@@ -369,18 +487,9 @@ def program[F[_]](implicit I : Interacts[F], D : DataSource[F]): FreeS[F, Unit] 
 
 ---
 
-### Recap ###
- 
-What if my lang does not support some of these things?
-
-1. Build it yourself <!-- .element: class="fragment" -->
-2. Ask lang designers to include HKTs, Typeclasses, ADT and others <!-- .element: class="fragment" -->
-3. We are part of the future of programming <!-- .element: class="fragment" -->
-
----
-
 ### Thanks! ###
  
+http://frees.io 
 @raulraja @47deg
 
 ---
