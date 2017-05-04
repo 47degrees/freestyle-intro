@@ -8,9 +8,9 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ---
 
-## Getting into FP is hard because...
+## Getting into typed FP is hard because...
 
-- No CT knowledge or math foundations <!-- .element: class="fragment" --> 
+- No previous CT knowledge or math foundations <!-- .element: class="fragment" --> 
 - Leaving styles one is used to (ex. OOP) <!-- .element: class="fragment" --> 
 - Lack of docs on how to properly use Monad Transformers and other techniques required to do concise FP. <!-- .element: class="fragment" -->
 - Rapid changing ecosystem <!-- .element: class="fragment" -->
@@ -83,6 +83,16 @@ implicit val handler: Interact.Handler[Task] = new Interact.Handler[Task] {
 - val userAndUserProgressInterpreter: C02 ~> M = userProgressOpsInterpreter or exerciseAndUserInterpreter
 - val allInterpreters: ExercisesApp ~> M = githubOpsInterpreter or userAndUserProgressInterpreter
 ```
+
+---
+
+## Predictable Workflow
+
+- Declare your algebras <!-- .element: class="fragment" -->
+- Group them into modules <!-- .element: class="fragment" -->
+- Compose your programs <!-- .element: class="fragment" -->
+- Provide implicit implementations of each algebra `Handler` <!-- .element: class="fragment" -->
+- Run your programs at the edge of the world <!-- .element: class="fragment" -->
 
 ---
 
@@ -181,7 +191,23 @@ program[App.Op].interpret[Task]
 
 ---
 
-## Alternative to transformers
+## Effects
+
+An alternative to monad transformers
+
+- error: Signal errors <!-- .element: class="fragment" -->
+- either: Flatten `Right` / short-circuit `Left` <!-- .element: class="fragment" -->
+- option: Flatten `Some` / short-circuit on `None` <!-- .element: class="fragment" -->
+- reader: Deffer dependency injection until program interpretation <!-- .element: class="fragment" -->
+- writer: Log / Accumulate values <!-- .element: class="fragment" -->
+- state: Pure functional state threaded over the program monadic sequence <!-- .element: class="fragment" -->
+- traverse: Generators over `Foldable` and `Traversable` <!-- .element: class="fragment" -->
+- validation: Accumulate and inspect errors throughout the monadic sequence <!-- .element: class="fragment" -->
+- async: Integrate with callback based API's <!-- .element: class="fragment" -->
+
+---
+
+## Effects
 
 Error
 
@@ -206,7 +232,7 @@ shortCircuit[ErrorM.Op].interpret[Target]
 
 ---
 
-## Alternative to transformers
+## Effects
 
 Option
 
@@ -227,7 +253,7 @@ programNone[OptionM.Op].interpret[Option]
 
 ---
 
-## Alternative to transformers
+## Effects
 
 Validation
 
@@ -253,21 +279,22 @@ programErrors[vl.ValidationM.Op].interpret[ValidationResult].runEmpty
 
 ---
 
-## Other currently available effects
+## Integrations
 
-- error: Signal errors <!-- .element: class="fragment" -->
-- either: Flatten `Right` / short-circuit `Left` <!-- .element: class="fragment" -->
-- option: Flatten `Some` / short-circuit on `None` <!-- .element: class="fragment" -->
-- reader: Deffer dependency injection until program interpretation <!-- .element: class="fragment" -->
-- writer: Log / Accumulate values <!-- .element: class="fragment" -->
-- state: Pure functional state threaded over the program monadic sequence <!-- .element: class="fragment" -->
-- traverse: Generators over `Foldable` and `Traversable` <!-- .element: class="fragment" -->
-- validation: Accumulate and inspect errors throughout the monadic sequence <!-- .element: class="fragment" -->
-- async: Integrate with callback based API's <!-- .element: class="fragment" -->
+- Monix: Target runtime and `async` effect integration. <!-- .element: class="fragment" -->
+- Fetch: Algebra to run fetch instances + Auto syntax `Fetch -> FS`. <!-- .element: class="fragment" -->
+- FS2: Embed FS2 `Stream` in Freestyle programs. <!-- .element: class="fragment" -->
+- Doobie: Embed `ConnectionIO` programs into Freestyle. <!-- .element: class="fragment" -->
+- Slick: Embed `DBIO` programs into Freestyle. <!-- .element: class="fragment" -->
+- Akka Http: `EntityMarshaller`s to return Freestyle programs in Akka-Http endpoints. <!-- .element: class="fragment" -->
+- Play: Implicit conversions to return Freestyle programs in Play Actions. <!-- .element: class="fragment" -->
+- Twitter Util: `Capture` instances for Twitter's `Future` & `Try`. <!-- .element: class="fragment" -->
+- Finch: Mapper instances to return Freestyle programs in Finch endpoints. <!-- .element: class="fragment" -->
+- Http4s: `EntityEncoder` instance to return Freestyle programs in Http4S endpoints. <!-- .element: class="fragment" -->
 
 ---
 
-## Easy 3rd party framework integrations
+## Integrations
 
 1. Create an algebra
 
@@ -279,7 +306,7 @@ programErrors[vl.ValidationM.Op].interpret[ValidationResult].runEmpty
 
 ---
 
-## Easy 3rd party framework integrations
+## Integrations
 
 2. Implement a handler declaring the target `M[_]` and whatever restrictions it may have
 
@@ -293,7 +320,7 @@ implicit def freeStyleDoobieHandler[M[_]: Catchable: Suspendable]
 
 ---
 
-## Easy 3rd party framework integrations
+## Integrations
 
 3. Optionally provide syntax for easy embedding into program's flow
 
@@ -306,7 +333,7 @@ implicit def freeSLiftDoobie[F[_]: DoobieM]: FreeSLift[F, ConnectionIO] =
 
 ---
 
-## Easy 3rd party framework integrations
+## Integrations
 
 4. Use third party types interleaved with other algebras and effects
 
@@ -326,21 +353,6 @@ def loadUser[F[_]]
     } yield user
 }
 ```
-
----
-
-## Integrations
-
-- Monix: Target runtime and `async` effect integration. <!-- .element: class="fragment" -->
-- Fetch: Algebra to run fetch instances + Auto syntax `Fetch -> FS`. <!-- .element: class="fragment" -->
-- FS2: Embed FS2 `Stream` in Freestyle programs. <!-- .element: class="fragment" -->
-- Doobie: Embed `ConnectionIO` programs into Freestyle. <!-- .element: class="fragment" -->
-- Slick: Embed `DBIO` programs into Freestyle. <!-- .element: class="fragment" -->
-- Akka Http: `EntityMarshaller`s to return Freestyle programs in Akka-Http endpoints. <!-- .element: class="fragment" -->
-- Play: Implicit conversions to return Freestyle programs in Play Actions. <!-- .element: class="fragment" -->
-- Twitter Util: `Capture` instances for Twitter's `Future` & `Try`. <!-- .element: class="fragment" -->
-- Finch: Mapper instances to return Freestyle programs in Finch endpoints. <!-- .element: class="fragment" -->
-- Http4s: `EntityEncoder` instance to return Freestyle programs in Http4S endpoints. <!-- .element: class="fragment" -->
 
 ---
 
