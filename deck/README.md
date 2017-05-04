@@ -19,9 +19,15 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ---
 
-## Freestyle Goals : Approachable to newcomers 
+## Freestyle Goals
 
-Interface + Impl driven design
+- Approachable to newcomers <!-- .element: class="fragment" -->
+- Stack-safe <!-- .element: class="fragment" -->
+- Dead simple integrations with Scala's library ecosystem <!-- .element: class="fragment" -->
+
+---
+
+## Interface + Impl driven design
 
 ```scala
 @free trait Interact {
@@ -37,13 +43,7 @@ implicit val handler: Interact.Handler[Task] = new Interact.Handler[Task] {
 
 ---
 
-## Freestyle Goals : Stack-safe
-
-Underlying impl is `cats.free.Free` which has stack-safety built in.
-
----
-
-## Freestyle Goals : Boilerplate reduction
+## Declaration Boilerplate Reduction
 
 ```diff
 + @free trait Interact {
@@ -53,12 +53,12 @@ Underlying impl is `cats.free.Free` which has stack-safety built in.
 - sealed trait Interact[A]
 - case class Ask(prompt: String) extends Interact[String]
 - case class Tell(msg: String) extends Interact[Unit]
-
+-
 - class Interacts[F[_]](implicit I: InjectK[Interact, F]) {
 -  def tell(msg: String): Free[F, Unit] = Free.inject[Interact, F](Tell(msg))
 -  def ask(prompt: String): Free[F, String] = Free.inject[Interact, F](Ask(prompt))
 - }
-
+-
 - object Interacts {
 -  implicit def interacts[F[_]](implicit I: InjectK[Interact, F]): Interacts[F] = new Interacts[F]
 -  def apply[F[_]](implicit ev: Interacts[F]): Interacts[F] = ev
@@ -67,7 +67,7 @@ Underlying impl is `cats.free.Free` which has stack-safety built in.
 
 ---
 
-## Freestyle Goals : Boilerplate reduction
+## Composition boilerplate reduction
 
 ```diff
 + @module trait App {
@@ -86,7 +86,7 @@ Underlying impl is `cats.free.Free` which has stack-safety built in.
 
 ---
 
-## Freestyle Goals : Predictable
+## Predictable Workflow
 
 Declare your algebras
 
@@ -97,8 +97,14 @@ Declare your algebras
   def tell(msg: String): FS[Unit]
 }
 
+/* Validates user input */
+@free trait Validation {
+  def minSize(s: String, n: Int): FS[Boolean]
+  def hasNumber(s: String): FS[Boolean]
+}
+
 /* Represents persistence operations */
-@free trait DataOp {
+@free trait Repository {
   def addCat(a: String): FS[Unit]
   def getAllCats : FS[List[String]]
 }
@@ -106,37 +112,40 @@ Declare your algebras
 
 ---
 
-## Freestyle Goals : Predictable
+## Predictable Workflow
 
 Combine your algebras in arbitrarily nested modules
 
 ```scala
 /* Handles user interaction */
 @module trait Persistence {
-  val interact: Interact
-  val dataOp: DataOp
+  val validation: Validation
+  val repository: Repository
 }
 
 @module trait App {
+  val interact: Interact
+  val errorM : ErrorM
   val persistence: Persistence
-  ...  
 }
 ```
 
 ---
 
-## Freestyle Goals : Predictable
+## Predictable Workflow
 
-Declare and composes pieces of your programs
+Declare and compose programs
 
 ```scala
-def program[F[_]: Interacts : DataSource]: FreeS[F, Unit] = {
+def program[F[_]: Interacts : Repository: ErrorM]: FreeS[F, Unit] = {
   val I = Interacts[F]
-  val D = DataSource[F]
+  val R = Repository[F]
+  val E = ErrorM[F]
   for {
     cat <- I.ask("What's the kitty's name?")
-    _ <- D.addCat(cat)
-    cats <- D.getAllCats
+    isValid <- (minSize(cat, 10) |@| hasNumber(cat)).map(_ && _) //may run ops in parallel
+    _ <- if (isValid) R.addCat(cat) else E.error(new RuntimeException("invalid name!"))
+    cats <- R.getAllCats
     _ <- I.tell(cats.toString)
   } yield ()
 }
@@ -144,7 +153,7 @@ def program[F[_]: Interacts : DataSource]: FreeS[F, Unit] = {
 
 ---
 
-## Freestyle Goals : Predictable
+## Predictable Workflow
 
 Provide implicit evidence of your handlers to any desired target `M[_]`
 
@@ -162,7 +171,7 @@ implicit val dataOpsHandler: DataOp.Handler[Task] = new DataOp.Handler[Task] {
 
 ---
 
-## Freestyle Goals : Predictable
+## Predictable Workflow
 
 Run your program to your desired `M[_]`
 
@@ -172,196 +181,7 @@ program[App.Op].interpret[Task]
 
 ---
 
-## Freestyle Goals : Third party framework integrations
-
-1. Create an algebra with the third party datatype
-
-```scala
-@free sealed trait DoobieM {
-  def transact[A](f: ConnectionIO[A]): FS[A]
-}
-```
-
----
-
-## Freestyle Goals : Third party framework integrations
-
-2. Implement a handler declaring the target `M[_]` and whatever restrictions it may have
-
-```scala
-implicit def freeStyleDoobieHandler[M[_]: Catchable: Suspendable]
-  (implicit xa: Transactor[M]): DoobieM.Handler[M] =
-      new DoobieM.Handler[M] {
-        def transact[A](fa: ConnectionIO[A]): M[A] = fa.transact(xa)
-      }
-```
-
----
-
-## Freestyle Goals : Third party framework integrations
-
-3. Optionally provide syntax for easy embedding into program's flow
-
-```scala
-implicit def freeSLiftDoobie[F[_]: DoobieM]: FreeSLift[F, ConnectionIO] =
-  new FreeSLift[F, ConnectionIO] {
-    def liftFSPar[A](cio: ConnectionIO[A]): FreeS.Par[F, A] = DoobieM[F].transact(cio)
-  }
-```
-
----
-
-## Freestyle Goals : Third party framework integrations
-
-4. Use third party types interleaved with other algebras and effects
-
-```scala
-def loadUser[F[_]]
-  (userId: UserId)
-  (implicit 
-    doobie: DoobieM[F], 
-    logging: LoggingM[F]): FreeS[F, User] = {
-    import doobie.implicits._
-    for {
-      user <- (sql"SELECT * FROM User WHERE userId = $userId"
-                .query[User]
-                .unique
-                .liftFS[F])
-      - <- logging.debug(s"Loaded User: ${user.userId}")
-    } yield user
-}
-```
-
----
-
-## Freestyle Goals : Easy parallelism
-
-All `FS[_]` ops are `FreeApplicative` and potentially parallelizable
-
-```scala
-@free trait UserInput {
-  def getText: FS[String]
-}
-
-@free trait Validation {
-  def minSize(s: String, n: Int): FS[Boolean]
-  def hasNumber(s: String): FS[Boolean]
-}
-
-def program[F[_]](implicit U: UserInput[F], V : Validation[F]) = {
-  import U._, V._
-  for {
-    userText <- getText
-    isValid <- (minSize(userText, 10) |@| hasNumber(userText)).map(_ && _)
-  } yield isValid
-}
-```
-
----
-
-## Freestyle Goals : Boilerplate reduction
-
-1. Approachable to newcomers <!-- .element: class="fragment" -->
-2. Stack-safe <!-- .element: class="fragment" -->
-3. Boilerplate reduction <!-- .element: class="fragment" -->
-4. Predictable API <!-- .element: class="fragment" -->
-5. Return type agnostic <!-- .element: class="fragment" -->
-6. Easy third party integrations
-
----
-
-## Algebras
-
-- Inspired by Simulacrum `@typeclass`
-- Auto implicit instances
-- Smart constructors 
-- FunctionK handlers (tagless style)
-
----
-
-## Before @free
-
-```scala
-/* Handles user interaction */
-sealed trait Interact[A]
-case class Ask(prompt: String) extends Interact[String]
-case class Tell(msg: String) extends Interact[Unit]
-
-class Interacts[F[_]](implicit I: InjectK[Interact, F]) {
-  def tell(msg: String): Free[F, Unit] = Free.inject[Interact, F](Tell(msg))
-  def ask(prompt: String): Free[F, String] = Free.inject[Interact, F](Ask(prompt))
-}
-
-object Interacts {
-  implicit def interacts[F[_]](implicit I: InjectK[Interact, F]): Interacts[F] = new Interacts[F]
-}
-
-/* Represents persistence operations */
-sealed trait DataOp[A]
-case class AddCat(a: String) extends DataOp[Unit]
-case class GetAllCats() extends DataOp[List[String]]
-
-class DataSource[F[_]](implicit I: InjectK[DataOp, F]) {
-  def addCat(a: String): Free[F, Unit] = Free.inject[DataOp, F](AddCat(a))
-  def getAllCats: Free[F, List[String]] = Free.inject[DataOp, F](GetAllCats())
-}
-
-object DataSource {
-  implicit def dataSource[F[_]](implicit I: InjectK[DataOp, F]): DataSource[F] = new DataSource[F]
-}
-```
-
----
-
-## After @free
-
-```scala
-/* Handles user interaction */
-@free trait Interact {
-  def ask(prompt: String): FS[String]
-  def tell(msg: String): FS[Unit]
-}
-
-/* Represents persistence operations */
-@free trait DataOp {
-  def addCat(a: String): FS[Unit]
-  def getAllCats : FS[List[String]]
-}
-```
-
----
-
-## Building programs
-
-```scala
-def program[F[_]](implicit I : Interacts[F], D : DataSource[F]): FreeS[F, Unit] = {
-  import I._, D._
-  for {
-    cat <- ask("What's the kitty's name?")
-    _ <- addCat(cat)
-    cats <- getAllCats
-    _ <- tell(cats.toString)
-  } yield ()
-}
-```
-
----
-
-## @tagless representations
-
----
-
-## Handlers
-
----
-
-## Modules
-
-- iota
-
----
-
-## Avoid using transformers
+## Alternative to transformers
 
 Error
 
@@ -386,7 +206,7 @@ shortCircuit[ErrorM.Op].interpret[Target]
 
 ---
 
-## Avoid using transformers
+## Alternative to transformers
 
 Option
 
@@ -407,7 +227,7 @@ programNone[OptionM.Op].interpret[Option]
 
 ---
 
-## Avoid using transformers
+## Alternative to transformers
 
 Validation
 
@@ -433,45 +253,105 @@ programErrors[vl.ValidationM.Op].interpret[ValidationResult].runEmpty
 
 ---
 
-## Effects
+## Other currently available effects
 
-- error
-- either
-- option
-- reader
-- writer
-- state
-- traverse
-- validation
-- async
+- error: Signal errors <!-- .element: class="fragment" -->
+- either: Flatten `Right` / short-circuit `Left` <!-- .element: class="fragment" -->
+- option: Flatten `Some` / short-circuit on `None` <!-- .element: class="fragment" -->
+- reader: Deffer dependency injection until program interpretation <!-- .element: class="fragment" -->
+- writer: Log / Accumulate values <!-- .element: class="fragment" -->
+- state: Pure functional state threaded over the program monadic sequence <!-- .element: class="fragment" -->
+- traverse: Generators over `Foldable` and `Traversable` <!-- .element: class="fragment" -->
+- validation: Accumulate and inspect errors throughout the monadic sequence <!-- .element: class="fragment" -->
+- async: Integrate with callback based API's <!-- .element: class="fragment" -->
+
+---
+
+## Easy 3rd party framework integrations
+
+1. Create an algebra
+
+```scala
+@free sealed trait DoobieM {
+  def transact[A](f: ConnectionIO[A]): FS[A]
+}
+```
+
+---
+
+## Easy 3rd party framework integrations
+
+2. Implement a handler declaring the target `M[_]` and whatever restrictions it may have
+
+```scala
+implicit def freeStyleDoobieHandler[M[_]: Catchable: Suspendable]
+  (implicit xa: Transactor[M]): DoobieM.Handler[M] =
+      new DoobieM.Handler[M] {
+        def transact[A](fa: ConnectionIO[A]): M[A] = fa.transact(xa)
+      }
+```
+
+---
+
+## Easy 3rd party framework integrations
+
+3. Optionally provide syntax for easy embedding into program's flow
+
+```scala
+implicit def freeSLiftDoobie[F[_]: DoobieM]: FreeSLift[F, ConnectionIO] =
+  new FreeSLift[F, ConnectionIO] {
+    def liftFSPar[A](cio: ConnectionIO[A]): FreeS.Par[F, A] = DoobieM[F].transact(cio)
+  }
+```
+
+---
+
+## Easy 3rd party framework integrations
+
+4. Use third party types interleaved with other algebras and effects
+
+```scala
+def loadUser[F[_]]
+  (userId: UserId)
+  (implicit 
+    doobie: DoobieM[F], 
+    logging: LoggingM[F]): FreeS[F, User] = {
+    import doobie.implicits._
+    for {
+      user <- sql"SELECT * FROM User WHERE userId = $userId"
+                .query[User]
+                .unique
+                .liftFS[F]
+      - <- logging.debug(s"Loaded User: ${user.userId}")
+    } yield user
+}
+```
 
 ---
 
 ## Integrations
 
-- Monix
-- Fetch
-- FS2
-- Doobie
-- Slick
-- Akka Http
-- Play
-- Finch
-- Http4s
+- Monix: Target runtime and `async` effect integration. <!-- .element: class="fragment" -->
+- Fetch: Algebra to run fetch instances + Auto syntax `Fetch -> FS`. <!-- .element: class="fragment" -->
+- FS2: Embed FS2 `Stream` in Freestyle programs. <!-- .element: class="fragment" -->
+- Doobie: Embed `ConnectionIO` programs into Freestyle. <!-- .element: class="fragment" -->
+- Slick: Embed `DBIO` programs into Freestyle. <!-- .element: class="fragment" -->
+- Akka Http: `EntityMarshaller`s to return Freestyle programs in Akka-Http endpoints. <!-- .element: class="fragment" -->
+- Play: Implicit conversions to return Freestyle programs in Play Actions. <!-- .element: class="fragment" -->
+- Twitter Util: `Capture` instances for Twitter's `Future` & `Try`. <!-- .element: class="fragment" -->
+- Finch: Mapper instances to return Freestyle programs in Finch endpoints. <!-- .element: class="fragment" -->
+- Http4s: `EntityEncoder` instance to return Freestyle programs in Http4S endpoints. <!-- .element: class="fragment" -->
 
 ---
 
 ## What's next?
 
-- kafka
-- cassandra
-- rpc
-
----
-
-## Inspired by
-
--
+- More integrations
+- Better support for Tagless Final
+- IntelliJ IDEA support
+- Kafka
+- Cassandra
+- Microservice / RPC modules
 
 ---
 
