@@ -8,6 +8,8 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ---
 
+<!-- .slide: class="center" -->
+
 ## Getting into typed FP is hard because...
 
 - No previous CT knowledge or math foundations <!-- .element: class="fragment" --> 
@@ -19,7 +21,7 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ---
 
-## Freestyle Goals
+## Goals
 
 - Approachable to newcomers <!-- .element: class="fragment" -->
 - Stack-safe <!-- .element: class="fragment" -->

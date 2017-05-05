@@ -229,7 +229,7 @@ body {
 .reveal pre code {
 border:
   display: block;
-  padding: 5px;
+  padding: 30px;
   overflow: auto;
   max-height: 600px;
   word-wrap: normal; }
@@ -363,6 +363,12 @@ border:
 /** override image styles **/
 .reveal section img { background:none; border:none; box-shadow:none; }
 
+.center {
+    text-align: center;
+    display: flex;
+    justify-content: center;
+}
+
 .intro {
     text-align: center;
     background-color: #142236;
@@ -370,4 +376,13 @@ border:
 
 .hljs {
   background: #142236
+}
+
+.reveal .footer {
+  position: absolute;
+  text-align: center;
+  bottom: 1.3em;
+  left: 5em;
+  font-size: 0.8em;
+  color: #eeee99;
 }
