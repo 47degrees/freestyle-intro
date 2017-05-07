@@ -29,6 +29,16 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ---
 
+## In this talk
+
+- Freestyle programming style
+- @free, @tagless, @modules
+- Effects
+- Integrations
+- Misc goodies (iota Coproduct, friendly error messages, macro debug)
+
+---
+
 ## Interface + Impl driven design
 
 ```scala
