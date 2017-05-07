@@ -36,6 +36,7 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 - Effects
 - Integrations
 - Misc goodies (iota Coproduct, friendly error messages, macro debug)
+- What's next
 
 ---
 
