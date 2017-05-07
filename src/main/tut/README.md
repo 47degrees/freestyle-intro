@@ -102,7 +102,7 @@ implicit val handler: Interact.Handler[Future] = new Interact.Handler[Future] {
 
 Declare your algebras
 
-```scala
+```tut:silent
 import freestyle._
 
 object algebras {
@@ -126,7 +126,7 @@ object algebras {
 
 Combine your algebras in arbitrarily nested modules
 
-```scala
+```tut:silent
 import algebras._
 import freestyle.effects.error._
 import freestyle.effects.error.implicits._
@@ -152,7 +152,7 @@ object modules {
 
 Declare and compose programs
 
-```scala
+```tut:silent
 import cats.syntax.cartesian._
 
 def program[F[_]]
@@ -173,7 +173,7 @@ def program[F[_]]
 
 Provide implicit evidence of your handlers to any desired target `M[_]`
 
-```scala
+```tut:silent
 import monix.eval.Task
 import monix.cats._
 import cats.syntax.flatMap._
@@ -198,7 +198,7 @@ implicit val validationHandler: Validation.Handler[Target] = new Validation.Hand
 
 Run your program to your desired `M[_]`
 
-```scala
+```tut:silent
 import modules._
 import freestyle.implicits._
 import cats.instances.list._
@@ -206,23 +206,13 @@ import monix.execution.Scheduler.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration._
 ```
-```scala
+```tut:book
 val concreteProgram = program[App.Op]
-// concreteProgram: freestyle.FreeS[modules.App.Op,Unit] = Free(...)
-
 val state = concreteProgram.interpret[Target]
-// state: Target[Unit] = cats.data.StateT@67622477
-
 val task = state.runEmpty
-// task: monix.eval.Task[(List[String], Unit)] = Task.FlatMap(Task.Now(cats.data.StateTMonad$$Lambda$19456/579953827@790ba3cc), cats.data.StateT$$Lambda$19457/2018448689@1f5f17cb)
-
 val asyncResult = task.runAsync
-// What's the kitty's name?
-// asyncResult: monix.execution.CancelableFuture[(List[String], Unit)] = monix.execution.CancelableFuture$Implementation@f854635
 
 Await.result(asyncResult, 3.seconds)
-// List(Isidoro1)
-// res6: (List[String], Unit) = (List(Isidoro1),())
 ```
 
 ---
@@ -231,18 +221,12 @@ Await.result(asyncResult, 3.seconds)
 
 Error
 
-```scala
+```tut:book
 import freestyle.effects.error._
-// import freestyle.effects.error._
-
 import freestyle.effects.error.implicits._
-// import freestyle.effects.error.implicits._
-
 import cats.instances.either._
-// import cats.instances.either._
 
 type EitherTarget[A] = Either[Throwable, A]
-// defined type alias EitherTarget
 
 def shortCircuit[F[_]: ErrorM] =
   for {
@@ -250,14 +234,9 @@ def shortCircuit[F[_]: ErrorM] =
     b <- ErrorM[F].error[Int](new RuntimeException("BOOM"))
     c <- FreeS.pure(1)
   } yield a + b + c
-// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
-// shortCircuit: [F[_]](implicit evidence$1: freestyle.effects.error.ErrorM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],Int]
 
 shortCircuit[ErrorM.Op].interpret[EitherTarget]
-// res7: EitherTarget[Int] = Left(java.lang.RuntimeException: BOOM)
-
 shortCircuit[ErrorM.Op].interpret[Task]
-// res8: monix.eval.Task[Int] = Task.FlatMap(Task.Suspend(monix.eval.Task$$$Lambda$19466/1943999501@2a9d8dd5), monix.eval.Task$$$Lambda$19467/2122493009@6055fb56)
 ```
 
 ---
@@ -266,18 +245,11 @@ shortCircuit[ErrorM.Op].interpret[Task]
 
 Option
 
-```scala
+```tut:book
 import freestyle.effects.option._
-// import freestyle.effects.option._
-
 import freestyle.effects.option.implicits._
-// import freestyle.effects.option.implicits._
-
 import cats.instances.option._
-// import cats.instances.option._
-
 import cats.instances.list._
-// import cats.instances.list._
 
 def programNone[F[_]: OptionM] =
   for {
@@ -285,14 +257,9 @@ def programNone[F[_]: OptionM] =
     b <- OptionM[F].option[Int](None)
     c <- FreeS.pure(1)
   } yield a + b + c
-// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
-// programNone: [F[_]](implicit evidence$1: freestyle.effects.option.OptionM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],Int]
 
 programNone[OptionM.Op].interpret[Option]
-// res9: Option[Int] = None
-
 programNone[OptionM.Op].interpret[List]
-// res10: List[Int] = List()
 ```
 
 ---
@@ -301,27 +268,17 @@ programNone[OptionM.Op].interpret[List]
 
 Validation
 
-```scala
+```tut:book
 import freestyle.effects.validation
-// import freestyle.effects.validation
-
 import cats.data.State
-// import cats.data.State
 
 sealed trait ValidationError
-// defined trait ValidationError
-
 case class NotValid(explanation: String) extends ValidationError
-// defined class NotValid
 
 val v = validation[ValidationError]
-// v: freestyle.effects.validation.ValidationProvider[ValidationError] = freestyle.effects.validation$ValidationProvider@24b8d78c
-
 import v.implicits._
-// import v.implicits._
 
 type ValidationResult[A] = State[List[ValidationError], A]
-// defined type alias ValidationResult
 
 def programErrors[F[_]: v.ValidationM] =
   for {
@@ -329,11 +286,8 @@ def programErrors[F[_]: v.ValidationM] =
     errs <- v.ValidationM[F].errors
     _ <- v.ValidationM[F].invalid(NotValid("this won't be in errs"))
   } yield errs
-// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
-// programErrors: [F[_]](implicit evidence$1: v.ValidationM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],List[ValidationError]]
 
 programErrors[v.ValidationM.Op].interpret[ValidationResult].runEmpty.value
-// res11: (List[ValidationError], List[ValidationError]) = (List(NotValid(oh no), NotValid(this won't be in errs)),List(NotValid(oh no)))
 ```
 
 ---
