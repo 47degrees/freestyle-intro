@@ -18,6 +18,10 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 - Rapid changing ecosystem <!-- .element: class="fragment" -->
 - Scala has not been designed to support first class typeclasses, sum types, etc. <!-- .element: class="fragment" -->
 - Proliferation of IO-like types <!-- .element: class="fragment" -->
+    - scala.concurrent.Future
+    - fs2.Task
+    - monix.eval.Task
+    - cats.effects.IO
 
 ---
 
@@ -35,7 +39,7 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 - @free, @tagless, @modules
 - Effects
 - Integrations
-- Misc goodies (iota Coproduct, friendly error messages, macro debug)
+- Optimizations (iota Coproduct, stack-safe @tagless)
 - What's next
 
 ---
@@ -113,7 +117,7 @@ implicit val handler: Interact.Handler[Future] = new Interact.Handler[Future] {
 
 Declare your algebras
 
-```tut:book
+```tut:silent
 import freestyle._
 
 object algebras {
@@ -137,7 +141,7 @@ object algebras {
 
 Combine your algebras in arbitrarily nested modules
 
-```tut:book
+```tut:silent
 import algebras._
 import freestyle.effects.error._
 import freestyle.effects.error.implicits._
@@ -163,7 +167,7 @@ object modules {
 
 Declare and compose programs
 
-```tut:book
+```tut:silent
 import cats.syntax.cartesian._
 
 def program[F[_]]
@@ -184,7 +188,7 @@ def program[F[_]]
 
 Provide implicit evidence of your handlers to any desired target `M[_]`
 
-```tut:book
+```tut:silent
 import monix.eval.Task
 import monix.cats._
 import cats.syntax.flatMap._
@@ -209,7 +213,7 @@ implicit val validationHandler: Validation.Handler[Target] = new Validation.Hand
 
 Run your program to your desired `M[_]`
 
-```tut:book
+```tut:silent
 import modules._
 import freestyle.implicits._
 import cats.instances.list._
@@ -220,9 +224,14 @@ import scala.concurrent.duration._
 val concreteProgram = program[App.Op]
 val state = concreteProgram.interpret[Target]
 val task = state.runEmpty
+
 val asyncResult = task.runAsync
+// What's the kitty's name?
+// asyncResult: monix.execution.CancelableFuture[(List[String], Unit)] = monix.execution.CancelableFuture$Implementation@158ce21d
 
 Await.result(asyncResult, 3.seconds)
+// List(Isidoro1)
+// res0: (List[String], Unit) = (List(Isidoro1),())
 ```
 
 ---
@@ -231,7 +240,7 @@ Await.result(asyncResult, 3.seconds)
 
 Error
 
-```tut:book
+```tut:silent
 import freestyle.effects.error._
 import freestyle.effects.error.implicits._
 import cats.instances.either._
@@ -246,7 +255,10 @@ def shortCircuit[F[_]: ErrorM] =
   } yield a + b + c
 
 shortCircuit[ErrorM.Op].interpret[EitherTarget]
+// res1: EitherTarget[Int] = Left(java.lang.RuntimeException: BOOM)
+
 shortCircuit[ErrorM.Op].interpret[Task]
+// res2: monix.eval.Task[Int] = Task.FlatMap(Task.Suspend(monix.eval.Task$$$Lambda$9224/1847650055@614aa803), monix.eval.Task$$$Lambda$9225/164912834@76271a7)
 ```
 
 ---
@@ -255,7 +267,7 @@ shortCircuit[ErrorM.Op].interpret[Task]
 
 Option
 
-```tut:book
+```tut:silent
 import freestyle.effects.option._
 import freestyle.effects.option.implicits._
 import cats.instances.option._
@@ -269,7 +281,10 @@ def programNone[F[_]: OptionM] =
   } yield a + b + c
 
 programNone[OptionM.Op].interpret[Option]
+// res3: Option[Int] = None
+
 programNone[OptionM.Op].interpret[List]
+// res4: List[Int] = List()
 ```
 
 ---
@@ -278,7 +293,7 @@ programNone[OptionM.Op].interpret[List]
 
 Validation
 
-```tut:book
+```tut:silent
 import freestyle.effects.validation
 import cats.data.State
 
@@ -298,6 +313,7 @@ def programErrors[F[_]: v.ValidationM] =
   } yield errs
 
 programErrors[v.ValidationM.Op].interpret[ValidationResult].runEmpty.value
+// res5: (List[ValidationError], List[ValidationError]) = (List(NotValid(oh no), NotValid(this won't be in errs)),List(NotValid(oh no)))
 ```
 
 ---
@@ -407,11 +423,16 @@ Freestyle provides optimizations for Free + Inject + Coproduct compositions as i
 [A fast Coproduct type based on Iota](https://github.com/47deg/iota) with constant evaluation time based on
  `@scala.annotation.switch` on the Coproduct's internal indexed values.
 
-```tut:book
+```tut:silent
 import iota._
 import iota.debug.options.ShowTrees
 
 val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
+// <console>:90: generated tree:
+// {
+//   final class $anon extends _root_.iota.CopKFunctionK[Op, Target] {
+//     private[this] val arr0 = scala.Predef.implicitly[cats.arrow.FunctionK[st.StateM.Op, Target]](st.implicits.freestyleStateMHandler[Target](cats.data.StateT.catsDataMonadStateForStateT[monix.eval.Task, List[String]](monix.cats.`package`.monixToCatsMonadRec[monix.eval.Task](monix.eval.Task.typeClassInstances)))).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
+//     private[this] val arr1 = scala.Predef.implicitly[cats.arrow.FunctionK[freestyle.effects.error.ErrorM.Op, Target]](freestyle.effects.error.implicits.freeStyleErrorMHandler[Target](cats.data.StateT.catsDataMonadErrorForStateT[monix.eval.Task, List[String], Throwable](monix.cats.`package`.monixToCatsMonadError[monix.eval.Tas...interpreter: freestyle.FSHandler[modules.App.Op,Target] = CopKFunctionK[Op, Target]<<generated>>
 ```
 
 ---
@@ -429,8 +450,8 @@ with `cats.data.EitherK`
 
 (Work in progress)
 
-Optimizations over the pattern matching of `FunctionK` for inner algebras user defined actions to translate them
-into a JVM switch with `@scala.annotation.switch`
+Optimizations over the pattern matching of `FunctionK` for user defined actions to translate them
+into a JVM switch with `@scala.annotation.switch`.
 
 ---
 
@@ -443,7 +464,7 @@ without rewriting interpreters to `Free[M, ?]` where `M[_]` is stack unsafe.
 
 ```scala
 program[Option] // Stack-unsafe
-program[StackSafe[Option]#F] // lift values automatically to Free[Option, ?] with fewer allocations than @free
+program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] without the `@free` ADTs overhead
 ```
 
 ---
@@ -452,10 +473,11 @@ program[StackSafe[Option]#F] // lift values automatically to Free[Option, ?] wit
 
 - More integrations
 - More syntax and runtime optimizations
-- IntelliJ IDEA support
-- Kafka
-- Cassandra
-- Microservice / RPC modules
+- IntelliJ IDEA support (scala meta)
+- Akka actors integration
+- Kafka client library
+- Cassandra client library
+- Microservice / RPC modules (Derive typesafe client and endpoints based on Protocol definitions)
 
 ---
 

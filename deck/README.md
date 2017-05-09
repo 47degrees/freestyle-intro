@@ -18,6 +18,10 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 - Rapid changing ecosystem <!-- .element: class="fragment" -->
 - Scala has not been designed to support first class typeclasses, sum types, etc. <!-- .element: class="fragment" -->
 - Proliferation of IO-like types <!-- .element: class="fragment" -->
+    - scala.concurrent.Future
+    - fs2.Task
+    - monix.eval.Task
+    - cats.effects.IO
 
 ---
 
@@ -35,7 +39,7 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 - @free, @tagless, @modules
 - Effects
 - Integrations
-- Misc goodies (iota Coproduct, friendly error messages, macro debug)
+- Optimizations (iota Coproduct, stack-safe @tagless)
 - What's next
 
 ---
@@ -115,7 +119,6 @@ Declare your algebras
 
 ```scala
 import freestyle._
-// import freestyle._
 
 object algebras {
   /* Handles user interaction */
@@ -130,8 +133,6 @@ object algebras {
     def hasNumber(s: String): FS[Boolean]
   }
 }
-// warning: there were two feature warnings; for details, enable `:setting -feature' or `:replay -feature'
-// defined object algebras
 ```
 
 ---
@@ -142,22 +143,11 @@ Combine your algebras in arbitrarily nested modules
 
 ```scala
 import algebras._
-// import algebras._
-
 import freestyle.effects.error._
-// import freestyle.effects.error._
-
 import freestyle.effects.error.implicits._
-// import freestyle.effects.error.implicits._
-
 import freestyle.effects.state
-// import freestyle.effects.state
-
 val st = state[List[String]]
-// st: freestyle.effects.state.StateSeedProvider[List[String]] = freestyle.effects.state$StateSeedProvider@63578d33
-
 import st.implicits._
-// import st.implicits._
 
 object modules {
 
@@ -169,8 +159,6 @@ object modules {
   }
   
 }
-// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
-// defined object modules
 ```
 
 ---
@@ -181,7 +169,6 @@ Declare and compose programs
 
 ```scala
 import cats.syntax.cartesian._
-// import cats.syntax.cartesian._
 
 def program[F[_]]
   (implicit I: Interact[F], R: st.StateM[F], E: ErrorM[F], V: Validation.StackSafe[F]): FreeS[F, Unit] = {
@@ -193,8 +180,6 @@ def program[F[_]]
     _ <- I.tell(cats.toString)
   } yield ()
 }
-// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
-// program: [F[_]](implicit I: algebras.Interact[F], implicit R: st.StateM[F], implicit E: freestyle.effects.error.ErrorM[F], implicit V: algebras.Validation.StackSafe[F])freestyle.FreeS[F,Unit]
 ```
 
 ---
@@ -205,31 +190,21 @@ Provide implicit evidence of your handlers to any desired target `M[_]`
 
 ```scala
 import monix.eval.Task
-// import monix.eval.Task
-
 import monix.cats._
-// import monix.cats._
-
 import cats.syntax.flatMap._
-// import cats.syntax.flatMap._
-
 import cats.data.StateT
-// import cats.data.StateT
 
 type Target[A] = StateT[Task, List[String], A]
-// defined type alias Target
 
 implicit val interactHandler: Interact.Handler[Target] = new Interact.Handler[Target] {
   def ask(prompt: String): Target[String] = tell(prompt) >> StateT.lift(Task.now("Isidoro1"))
   def tell(msg: String): Target[Unit] = StateT.lift(Task { println(msg) })
 }
-// interactHandler: algebras.Interact.Handler[Target] = $anon$1@67f07444
 
 implicit val validationHandler: Validation.Handler[Target] = new Validation.Handler[Target] {
   def minSize(s: String, n: Int): Target[Boolean] = StateT.lift(Task.now(s.length >= n))
   def hasNumber(s: String): Target[Boolean] = StateT.lift(Task.now(s.exists(c => "0123456789".contains(c))))
 }
-// validationHandler: algebras.Validation.Handler[Target] = $anon$1@54392c80
 ```
 
 ---
@@ -240,31 +215,15 @@ Run your program to your desired `M[_]`
 
 ```scala
 import modules._
-// import modules._
-
 import freestyle.implicits._
-// import freestyle.implicits._
-
 import cats.instances.list._
-// import cats.instances.list._
-
 import monix.execution.Scheduler.Implicits.global
-// import monix.execution.Scheduler.Implicits.global
-
 import scala.concurrent.Await
-// import scala.concurrent.Await
-
 import scala.concurrent.duration._
-// import scala.concurrent.duration._
 
 val concreteProgram = program[App.Op]
-// concreteProgram: freestyle.FreeS[modules.App.Op,Unit] = Free(...)
-
 val state = concreteProgram.interpret[Target]
-// state: Target[Unit] = cats.data.StateT@21ffb72e
-
 val task = state.runEmpty
-// task: monix.eval.Task[(List[String], Unit)] = Task.FlatMap(Task.Now(cats.data.StateTMonad$$Lambda$9214/1960633457@4e8b0d6b), cats.data.StateT$$Lambda$9215/541844491@7d21680d)
 
 val asyncResult = task.runAsync
 // What's the kitty's name?
@@ -283,16 +242,10 @@ Error
 
 ```scala
 import freestyle.effects.error._
-// import freestyle.effects.error._
-
 import freestyle.effects.error.implicits._
-// import freestyle.effects.error.implicits._
-
 import cats.instances.either._
-// import cats.instances.either._
 
 type EitherTarget[A] = Either[Throwable, A]
-// defined type alias EitherTarget
 
 def shortCircuit[F[_]: ErrorM] =
   for {
@@ -300,8 +253,6 @@ def shortCircuit[F[_]: ErrorM] =
     b <- ErrorM[F].error[Int](new RuntimeException("BOOM"))
     c <- FreeS.pure(1)
   } yield a + b + c
-// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
-// shortCircuit: [F[_]](implicit evidence$1: freestyle.effects.error.ErrorM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],Int]
 
 shortCircuit[ErrorM.Op].interpret[EitherTarget]
 // res1: EitherTarget[Int] = Left(java.lang.RuntimeException: BOOM)
@@ -318,16 +269,9 @@ Option
 
 ```scala
 import freestyle.effects.option._
-// import freestyle.effects.option._
-
 import freestyle.effects.option.implicits._
-// import freestyle.effects.option.implicits._
-
 import cats.instances.option._
-// import cats.instances.option._
-
 import cats.instances.list._
-// import cats.instances.list._
 
 def programNone[F[_]: OptionM] =
   for {
@@ -335,8 +279,6 @@ def programNone[F[_]: OptionM] =
     b <- OptionM[F].option[Int](None)
     c <- FreeS.pure(1)
   } yield a + b + c
-// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
-// programNone: [F[_]](implicit evidence$1: freestyle.effects.option.OptionM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],Int]
 
 programNone[OptionM.Op].interpret[Option]
 // res3: Option[Int] = None
@@ -353,25 +295,15 @@ Validation
 
 ```scala
 import freestyle.effects.validation
-// import freestyle.effects.validation
-
 import cats.data.State
-// import cats.data.State
 
 sealed trait ValidationError
-// defined trait ValidationError
-
 case class NotValid(explanation: String) extends ValidationError
-// defined class NotValid
 
 val v = validation[ValidationError]
-// v: freestyle.effects.validation.ValidationProvider[ValidationError] = freestyle.effects.validation$ValidationProvider@75afaa50
-
 import v.implicits._
-// import v.implicits._
 
 type ValidationResult[A] = State[List[ValidationError], A]
-// defined type alias ValidationResult
 
 def programErrors[F[_]: v.ValidationM] =
   for {
@@ -379,8 +311,6 @@ def programErrors[F[_]: v.ValidationM] =
     errs <- v.ValidationM[F].errors
     _ <- v.ValidationM[F].invalid(NotValid("this won't be in errs"))
   } yield errs
-// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
-// programErrors: [F[_]](implicit evidence$1: v.ValidationM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],List[ValidationError]]
 
 programErrors[v.ValidationM.Op].interpret[ValidationResult].runEmpty.value
 // res5: (List[ValidationError], List[ValidationError]) = (List(NotValid(oh no), NotValid(this won't be in errs)),List(NotValid(oh no)))
@@ -495,10 +425,7 @@ Freestyle provides optimizations for Free + Inject + Coproduct compositions as i
 
 ```scala
 import iota._
-// import iota._
-
 import iota.debug.options.ShowTrees
-// import iota.debug.options.ShowTrees
 
 val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
 // <console>:90: generated tree:
@@ -523,8 +450,8 @@ with `cats.data.EitherK`
 
 (Work in progress)
 
-Optimizations over the pattern matching of `FunctionK` for inner algebras user defined actions to translate them
-into a JVM switch with `@scala.annotation.switch`
+Optimizations over the pattern matching of `FunctionK` for user defined actions to translate them
+into a JVM switch with `@scala.annotation.switch`.
 
 ---
 
@@ -537,7 +464,7 @@ without rewriting interpreters to `Free[M, ?]` where `M[_]` is stack unsafe.
 
 ```scala
 program[Option] // Stack-unsafe
-program[StackSafe[Option]#F] // lift values automatically to Free[Option, ?] with fewer allocations than @free
+program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] without the `@free` ADTs overhead
 ```
 
 ---
@@ -546,16 +473,17 @@ program[StackSafe[Option]#F] // lift values automatically to Free[Option, ?] wit
 
 - More integrations
 - More syntax and runtime optimizations
-- IntelliJ IDEA support
-- Kafka
-- Cassandra
-- Microservice / RPC modules
+- IntelliJ IDEA support (scala meta)
+- Akka actors integration
+- Kafka client library
+- Cassandra client library
+- Microservice / RPC modules (Derive typesafe client and endpoints based on Protocol definitions)
 
 ---
 
 ### Thanks! ###
  
-http://frees.io 
+http://frees.io
 @raulraja @47deg
 
 ---
