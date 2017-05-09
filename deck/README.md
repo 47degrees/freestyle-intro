@@ -29,6 +29,17 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ---
 
+## In this talk
+
+- Freestyle programming style
+- @free, @tagless, @modules
+- Effects
+- Integrations
+- Misc goodies (iota Coproduct, friendly error messages, macro debug)
+- What's next
+
+---
+
 ## Interface + Impl driven design
 
 ```scala
@@ -104,6 +115,7 @@ Declare your algebras
 
 ```scala
 import freestyle._
+// import freestyle._
 
 object algebras {
   /* Handles user interaction */
@@ -113,11 +125,13 @@ object algebras {
   }
 
   /* Validates user input */
-  @free trait Validation {
+  @tagless trait Validation {
     def minSize(s: String, n: Int): FS[Boolean]
     def hasNumber(s: String): FS[Boolean]
   }
 }
+// warning: there were two feature warnings; for details, enable `:setting -feature' or `:replay -feature'
+// defined object algebras
 ```
 
 ---
@@ -128,22 +142,35 @@ Combine your algebras in arbitrarily nested modules
 
 ```scala
 import algebras._
+// import algebras._
+
 import freestyle.effects.error._
+// import freestyle.effects.error._
+
 import freestyle.effects.error.implicits._
+// import freestyle.effects.error.implicits._
+
 import freestyle.effects.state
+// import freestyle.effects.state
+
 val st = state[List[String]]
+// st: freestyle.effects.state.StateSeedProvider[List[String]] = freestyle.effects.state$StateSeedProvider@63578d33
+
 import st.implicits._
+// import st.implicits._
 
 object modules {
 
   @module trait App {
-    val validation: Validation
+    val validation: Validation.StackSafe
     val interact: Interact
     val errorM : ErrorM
     val persistence: st.StateM
   }
   
 }
+// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
+// defined object modules
 ```
 
 ---
@@ -154,9 +181,10 @@ Declare and compose programs
 
 ```scala
 import cats.syntax.cartesian._
+// import cats.syntax.cartesian._
 
 def program[F[_]]
-  (implicit I: Interact[F], R: st.StateM[F], E: ErrorM[F], V: Validation[F]): FreeS[F, Unit] = {
+  (implicit I: Interact[F], R: st.StateM[F], E: ErrorM[F], V: Validation.StackSafe[F]): FreeS[F, Unit] = {
   for {
     cat <- I.ask("What's the kitty's name?")
     isValid <- (V.minSize(cat, 5) |@| V.hasNumber(cat)).map(_ && _) //may run ops in parallel
@@ -165,6 +193,8 @@ def program[F[_]]
     _ <- I.tell(cats.toString)
   } yield ()
 }
+// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
+// program: [F[_]](implicit I: algebras.Interact[F], implicit R: st.StateM[F], implicit E: freestyle.effects.error.ErrorM[F], implicit V: algebras.Validation.StackSafe[F])freestyle.FreeS[F,Unit]
 ```
 
 ---
@@ -175,21 +205,31 @@ Provide implicit evidence of your handlers to any desired target `M[_]`
 
 ```scala
 import monix.eval.Task
+// import monix.eval.Task
+
 import monix.cats._
+// import monix.cats._
+
 import cats.syntax.flatMap._
+// import cats.syntax.flatMap._
+
 import cats.data.StateT
+// import cats.data.StateT
 
 type Target[A] = StateT[Task, List[String], A]
+// defined type alias Target
 
 implicit val interactHandler: Interact.Handler[Target] = new Interact.Handler[Target] {
   def ask(prompt: String): Target[String] = tell(prompt) >> StateT.lift(Task.now("Isidoro1"))
   def tell(msg: String): Target[Unit] = StateT.lift(Task { println(msg) })
 }
+// interactHandler: algebras.Interact.Handler[Target] = $anon$1@67f07444
 
 implicit val validationHandler: Validation.Handler[Target] = new Validation.Handler[Target] {
   def minSize(s: String, n: Int): Target[Boolean] = StateT.lift(Task.now(s.length >= n))
   def hasNumber(s: String): Target[Boolean] = StateT.lift(Task.now(s.exists(c => "0123456789".contains(c))))
 }
+// validationHandler: algebras.Validation.Handler[Target] = $anon$1@54392c80
 ```
 
 ---
@@ -200,29 +240,39 @@ Run your program to your desired `M[_]`
 
 ```scala
 import modules._
+// import modules._
+
 import freestyle.implicits._
+// import freestyle.implicits._
+
 import cats.instances.list._
+// import cats.instances.list._
+
 import monix.execution.Scheduler.Implicits.global
+// import monix.execution.Scheduler.Implicits.global
+
 import scala.concurrent.Await
+// import scala.concurrent.Await
+
 import scala.concurrent.duration._
-```
-```scala
+// import scala.concurrent.duration._
+
 val concreteProgram = program[App.Op]
 // concreteProgram: freestyle.FreeS[modules.App.Op,Unit] = Free(...)
 
 val state = concreteProgram.interpret[Target]
-// state: Target[Unit] = cats.data.StateT@67622477
+// state: Target[Unit] = cats.data.StateT@21ffb72e
 
 val task = state.runEmpty
-// task: monix.eval.Task[(List[String], Unit)] = Task.FlatMap(Task.Now(cats.data.StateTMonad$$Lambda$19456/579953827@790ba3cc), cats.data.StateT$$Lambda$19457/2018448689@1f5f17cb)
+// task: monix.eval.Task[(List[String], Unit)] = Task.FlatMap(Task.Now(cats.data.StateTMonad$$Lambda$9214/1960633457@4e8b0d6b), cats.data.StateT$$Lambda$9215/541844491@7d21680d)
 
 val asyncResult = task.runAsync
 // What's the kitty's name?
-// asyncResult: monix.execution.CancelableFuture[(List[String], Unit)] = monix.execution.CancelableFuture$Implementation@f854635
+// asyncResult: monix.execution.CancelableFuture[(List[String], Unit)] = monix.execution.CancelableFuture$Implementation@158ce21d
 
 Await.result(asyncResult, 3.seconds)
 // List(Isidoro1)
-// res6: (List[String], Unit) = (List(Isidoro1),())
+// res0: (List[String], Unit) = (List(Isidoro1),())
 ```
 
 ---
@@ -254,10 +304,10 @@ def shortCircuit[F[_]: ErrorM] =
 // shortCircuit: [F[_]](implicit evidence$1: freestyle.effects.error.ErrorM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],Int]
 
 shortCircuit[ErrorM.Op].interpret[EitherTarget]
-// res7: EitherTarget[Int] = Left(java.lang.RuntimeException: BOOM)
+// res1: EitherTarget[Int] = Left(java.lang.RuntimeException: BOOM)
 
 shortCircuit[ErrorM.Op].interpret[Task]
-// res8: monix.eval.Task[Int] = Task.FlatMap(Task.Suspend(monix.eval.Task$$$Lambda$19466/1943999501@2a9d8dd5), monix.eval.Task$$$Lambda$19467/2122493009@6055fb56)
+// res2: monix.eval.Task[Int] = Task.FlatMap(Task.Suspend(monix.eval.Task$$$Lambda$9224/1847650055@614aa803), monix.eval.Task$$$Lambda$9225/164912834@76271a7)
 ```
 
 ---
@@ -289,10 +339,10 @@ def programNone[F[_]: OptionM] =
 // programNone: [F[_]](implicit evidence$1: freestyle.effects.option.OptionM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],Int]
 
 programNone[OptionM.Op].interpret[Option]
-// res9: Option[Int] = None
+// res3: Option[Int] = None
 
 programNone[OptionM.Op].interpret[List]
-// res10: List[Int] = List()
+// res4: List[Int] = List()
 ```
 
 ---
@@ -315,7 +365,7 @@ case class NotValid(explanation: String) extends ValidationError
 // defined class NotValid
 
 val v = validation[ValidationError]
-// v: freestyle.effects.validation.ValidationProvider[ValidationError] = freestyle.effects.validation$ValidationProvider@24b8d78c
+// v: freestyle.effects.validation.ValidationProvider[ValidationError] = freestyle.effects.validation$ValidationProvider@75afaa50
 
 import v.implicits._
 // import v.implicits._
@@ -333,7 +383,7 @@ def programErrors[F[_]: v.ValidationM] =
 // programErrors: [F[_]](implicit evidence$1: v.ValidationM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],List[ValidationError]]
 
 programErrors[v.ValidationM.Op].interpret[ValidationResult].runEmpty.value
-// res11: (List[ValidationError], List[ValidationError]) = (List(NotValid(oh no), NotValid(this won't be in errs)),List(NotValid(oh no)))
+// res5: (List[ValidationError], List[ValidationError]) = (List(NotValid(oh no), NotValid(this won't be in errs)),List(NotValid(oh no)))
 ```
 
 ---
@@ -431,26 +481,75 @@ def loadUser[F[_]]
 
 ---
 
+## Optimizations
+
+Freestyle provides optimizations for Free + Inject + Coproduct compositions as in
+[DataTypes a la Carte](http://www.cs.ru.nl/~W.Swierstra/Publications/DataTypesALaCarte.pdf)
+
+---
+
+## Optimizations
+
+[A fast Coproduct type based on Iota](https://github.com/47deg/iota) with constant evaluation time based on
+ `@scala.annotation.switch` on the Coproduct's internal indexed values.
+
+```scala
+import iota._
+// import iota._
+
+import iota.debug.options.ShowTrees
+// import iota.debug.options.ShowTrees
+
+val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
+// <console>:90: generated tree:
+// {
+//   final class $anon extends _root_.iota.CopKFunctionK[Op, Target] {
+//     private[this] val arr0 = scala.Predef.implicitly[cats.arrow.FunctionK[st.StateM.Op, Target]](st.implicits.freestyleStateMHandler[Target](cats.data.StateT.catsDataMonadStateForStateT[monix.eval.Task, List[String]](monix.cats.`package`.monixToCatsMonadRec[monix.eval.Task](monix.eval.Task.typeClassInstances)))).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
+//     private[this] val arr1 = scala.Predef.implicitly[cats.arrow.FunctionK[freestyle.effects.error.ErrorM.Op, Target]](freestyle.effects.error.implicits.freeStyleErrorMHandler[Target](cats.data.StateT.catsDataMonadErrorForStateT[monix.eval.Task, List[String], Throwable](monix.cats.`package`.monixToCatsMonadError[monix.eval.Tas...interpreter: freestyle.FSHandler[modules.App.Op,Target] = CopKFunctionK[Op, Target]<<generated>>
+```
+
+---
+
+## Optimizations
+
+Freestyle does not suffer from degrading performance as the number of Algebras increases in contrast
+with `cats.data.EitherK`
+
+![iota benchmark](custom/images/iota-benchmark.png)
+
+---
+
+## Optimizations
+
+(Work in progress)
+
+Optimizations over the pattern matching of `FunctionK` for inner algebras user defined actions to translate them
+into a JVM switch with `@scala.annotation.switch`
+
+---
+
+## Optimizations
+
+(Work in progress)
+
+Brings ADT-less stack safety to `@tagless` Algebras 
+without rewriting interpreters to `Free[M, ?]` where `M[_]` is stack unsafe.
+
+```scala
+program[Option] // Stack-unsafe
+program[StackSafe[Option]#F] // lift values automatically to Free[Option, ?] with fewer allocations than @free
+```
+
+---
+
 ## What's next?
 
 - More integrations
-- Better support for Tagless Final
+- More syntax and runtime optimizations
 - IntelliJ IDEA support
 - Kafka
 - Cassandra
 - Microservice / RPC modules
-
----
-
-### Features ###
-
-| *Error Handling* | *When to use*               | *Java* | *Kotlin* | *Scala* |
-|------------------|--------------------------- -|--------|----------|---------|
-| *Exceptions*     | ~Never                      | x      | x        | x       |
-| *Option*         | Modeling Absence            | ?      | x        | x       |
-| *Try*            | Capturing Exceptions        | ?      | ?        | x       |
-| *Either*         | Modeling Alternate Paths    | ?      | ?        | x       |
-| *MonadError*     | Abstracting away concerns   | -      | -        | x       |
 
 ---
 

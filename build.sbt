@@ -5,6 +5,7 @@ lazy val root = (project in file(".")).
     scalaVersion := "2.12.1",
     libraryDependencies ++= Seq(
       "com.47deg" %% "freestyle" % "0.1.0",
+      "com.47deg" %% "freestyle-tagless" % "0.1.0",
       "com.47deg" %% "freestyle-effects" % "0.1.0",
       "com.47deg" %% "freestyle-monix" % "0.1.0",
       "io.monix" %% "monix-cats" % "2.2.4",

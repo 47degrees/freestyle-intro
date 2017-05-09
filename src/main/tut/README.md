@@ -113,7 +113,7 @@ implicit val handler: Interact.Handler[Future] = new Interact.Handler[Future] {
 
 Declare your algebras
 
-```tut:silent
+```tut:book
 import freestyle._
 
 object algebras {
@@ -124,7 +124,7 @@ object algebras {
   }
 
   /* Validates user input */
-  @free trait Validation {
+  @tagless trait Validation {
     def minSize(s: String, n: Int): FS[Boolean]
     def hasNumber(s: String): FS[Boolean]
   }
@@ -137,7 +137,7 @@ object algebras {
 
 Combine your algebras in arbitrarily nested modules
 
-```tut:silent
+```tut:book
 import algebras._
 import freestyle.effects.error._
 import freestyle.effects.error.implicits._
@@ -148,7 +148,7 @@ import st.implicits._
 object modules {
 
   @module trait App {
-    val validation: Validation
+    val validation: Validation.StackSafe
     val interact: Interact
     val errorM : ErrorM
     val persistence: st.StateM
@@ -163,11 +163,11 @@ object modules {
 
 Declare and compose programs
 
-```tut:silent
+```tut:book
 import cats.syntax.cartesian._
 
 def program[F[_]]
-  (implicit I: Interact[F], R: st.StateM[F], E: ErrorM[F], V: Validation[F]): FreeS[F, Unit] = {
+  (implicit I: Interact[F], R: st.StateM[F], E: ErrorM[F], V: Validation.StackSafe[F]): FreeS[F, Unit] = {
   for {
     cat <- I.ask("What's the kitty's name?")
     isValid <- (V.minSize(cat, 5) |@| V.hasNumber(cat)).map(_ && _) //may run ops in parallel
@@ -184,7 +184,7 @@ def program[F[_]]
 
 Provide implicit evidence of your handlers to any desired target `M[_]`
 
-```tut:silent
+```tut:book
 import monix.eval.Task
 import monix.cats._
 import cats.syntax.flatMap._
@@ -209,15 +209,14 @@ implicit val validationHandler: Validation.Handler[Target] = new Validation.Hand
 
 Run your program to your desired `M[_]`
 
-```tut:silent
+```tut:book
 import modules._
 import freestyle.implicits._
 import cats.instances.list._
 import monix.execution.Scheduler.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration._
-```
-```tut:book
+
 val concreteProgram = program[App.Op]
 val state = concreteProgram.interpret[Target]
 val task = state.runEmpty
@@ -396,10 +395,63 @@ def loadUser[F[_]]
 
 ---
 
+## Optimizations
+
+Freestyle provides optimizations for Free + Inject + Coproduct compositions as in
+[DataTypes a la Carte](http://www.cs.ru.nl/~W.Swierstra/Publications/DataTypesALaCarte.pdf)
+
+---
+
+## Optimizations
+
+[A fast Coproduct type based on Iota](https://github.com/47deg/iota) with constant evaluation time based on
+ `@scala.annotation.switch` on the Coproduct's internal indexed values.
+
+```tut:book
+import iota._
+import iota.debug.options.ShowTrees
+
+val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
+```
+
+---
+
+## Optimizations
+
+Freestyle does not suffer from degrading performance as the number of Algebras increases in contrast
+with `cats.data.EitherK`
+
+![iota benchmark](custom/images/iota-benchmark.png)
+
+---
+
+## Optimizations
+
+(Work in progress)
+
+Optimizations over the pattern matching of `FunctionK` for inner algebras user defined actions to translate them
+into a JVM switch with `@scala.annotation.switch`
+
+---
+
+## Optimizations
+
+(Work in progress)
+
+Brings ADT-less stack safety to `@tagless` Algebras 
+without rewriting interpreters to `Free[M, ?]` where `M[_]` is stack unsafe.
+
+```scala
+program[Option] // Stack-unsafe
+program[StackSafe[Option]#F] // lift values automatically to Free[Option, ?] with fewer allocations than @free
+```
+
+---
+
 ## What's next?
 
 - More integrations
-- Better support for Tagless Final
+- More syntax and runtime optimizations
 - IntelliJ IDEA support
 - Kafka
 - Cassandra
@@ -407,21 +459,9 @@ def loadUser[F[_]]
 
 ---
 
-### Features ###
-
-| *Error Handling* | *When to use*               | *Java* | *Kotlin* | *Scala* |
-|------------------|--------------------------- -|--------|----------|---------|
-| *Exceptions*     | ~Never                      | x      | x        | x       |
-| *Option*         | Modeling Absence            | ?      | x        | x       |
-| *Try*            | Capturing Exceptions        | ?      | ?        | x       |
-| *Either*         | Modeling Alternate Paths    | ?      | ?        | x       |
-| *MonadError*     | Abstracting away concerns   | -      | -        | x       |
-
----
-
 ### Thanks! ###
  
-http://frees.io 
+http://frees.io
 @raulraja @47deg
 
 ---
