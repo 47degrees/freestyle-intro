@@ -12,8 +12,8 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ## Getting into typed FP is hard because...
 
-- No previous CT knowledge or math foundations <!-- .element: class="fragment" --> 
-- Leaving styles one is used to (ex. OOP) <!-- .element: class="fragment" --> 
+- No previous CT knowledge or math foundations <!-- .element: class="fragment" -->
+- Leaving styles one is used to (ex. OOP) <!-- .element: class="fragment" -->
 - Lack of docs on how to properly use Monad Transformers and other techniques required to do concise FP. <!-- .element: class="fragment" -->
 - Rapid changing ecosystem <!-- .element: class="fragment" -->
 - Scala has not been designed to support first class typeclasses, sum types, etc. <!-- .element: class="fragment" -->
@@ -157,7 +157,7 @@ object modules {
     val errorM : ErrorM
     val persistence: st.StateM
   }
-  
+
 }
 ```
 
@@ -323,7 +323,7 @@ programErrors[v.ValidationM.Op].interpret[ValidationResult].runEmpty.value
 An alternative to monad transformers
 
 <div> error: Signal errors </div> <!-- .element: class="fragment" -->
-<div> either: Flattens if `Right` / short-circuit `Left` </div> <!-- .element: class="fragment" --> 
+<div> either: Flattens if `Right` / short-circuit `Left` </div> <!-- .element: class="fragment" -->
 <div> option: Flatten `Some` / short-circuit on `None` </div> <!-- .element: class="fragment" -->
 <div> reader: Deffer dependency injection until program interpretation </div> <!-- .element: class="fragment" -->
 <div> writer: Log / Accumulate values </div> <!-- .element: class="fragment" -->
@@ -395,8 +395,8 @@ implicit def freeSLiftDoobie[F[_]: DoobieM]: FreeSLift[F, ConnectionIO] =
 ```scala
 def loadUser[F[_]]
   (userId: UserId)
-  (implicit 
-    doobie: DoobieM[F], 
+  (implicit
+    doobie: DoobieM[F],
     logging: LoggingM[F]): FreeS[F, User] = {
     import doobie.implicits._
     for {
@@ -442,7 +442,7 @@ val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
 Freestyle does not suffer from degrading performance as the number of Algebras increases in contrast
 with `cats.data.EitherK`
 
-![iota benchmark](custom/images/iota-benchmark.png)
+<object data="iota_bench.svg">Iota Benchmark Image</object>
 
 ---
 
@@ -459,7 +459,7 @@ into a JVM switch with `@scala.annotation.switch`.
 
 (Work in progress)
 
-Brings ADT-less stack safety to `@tagless` Algebras 
+Brings ADT-less stack safety to `@tagless` Algebras
 without rewriting interpreters to `Free[M, ?]` where `M[_]` is stack unsafe.
 
 ```scala
@@ -482,7 +482,7 @@ program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] w
 ---
 
 ### Thanks! ###
- 
+
 http://frees.io
 @raulraja @47deg
 
