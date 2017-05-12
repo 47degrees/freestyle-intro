@@ -11,7 +11,6 @@
  * @author Zeno Rocha <hi@zenorocha.com>
  */
 
-
 .hljs {
   display: block;
   overflow-x: auto;
@@ -39,60 +38,18 @@
   color: #50fa7b;
 }
 
-.hljs-string {
-  color: #f1fa8c;
-}
-
-.hljs-number {
-  color: #bd93f9;
-}
-
-.hljs-variable {
-  color: #50fa7b;
-}
-
-.hljs-template-variable {
-  color: #50fa7b;
-}
-
-.hljs-variable-2 {
-  color: white;
-}
-
-.hljs-def {
-  color: #50fa7b;
-}
-
-.hljs-operator {
-  color: #ff79c6;
-}
-
-.hljs-keyword {
-  color: #ff79c6;
-}
-
-.hljs-atom { color: #bd93f9; }
-.hljs-meta { color: #6272a4; }
-.hljs-tag { color: #ff79c6; }
-.hljs-template-tag { color: #ff79c6; }
-.hljs-attribute { color: #50fa7b; }
-.hljs-qualifier { color: #50fa7b; }
-.hljs-property { color: #66d9ef; }
-.hljs-builtin { color: #50fa7b; }
-.hljs-variable-3 { color: #ffb86c; }
-.hljs-title { color: #f1fa8c; }
-.hljs-type { color: #01C2C2; }
-.hljs-class > .hljs-title { color: #01C2C2; }
-
-#
-
+.hljs-string,
+.hljs-meta,
 .hljs-name,
+.hljs-type,
+.hljs-attribute,
 .hljs-symbol,
 .hljs-bullet,
 .hljs-addition,
+.hljs-variable,
 .hljs-template-tag,
 .hljs-template-variable {
-  color: #ff79c6;
+  color: #f1fa8c;
 }
 
 .hljs-comment,
@@ -104,6 +61,7 @@
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal,
+.hljs-title,
 .hljs-section,
 .hljs-doctag,
 .hljs-type,

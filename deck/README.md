@@ -25,7 +25,7 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ---
 
-## Freestyle Goals
+## Freestyle's Goals
 
 - Approachable to newcomers <!-- .element: class="fragment" -->
 - Stack-safe <!-- .element: class="fragment" -->
@@ -35,12 +35,12 @@ A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
 
 ## In this talk
 
-- Freestyle programming style
-- @free, @tagless, @modules
-- Effects
-- Integrations
-- Optimizations (iota Coproduct, stack-safe @tagless)
-- What's next
+- <div> Freestyle programming style </div> <!-- .element: class="fragment" -->
+- <div> **@free**, **@tagless**, **@modules** </div> <!-- .element: class="fragment" -->
+- <div> Effects </div><!-- .element: class="fragment" -->
+- <div> Integrations </div><!-- .element: class="fragment" -->
+- <div> Optimizations (iota Coproduct, stack-safe @tagless) </div> <!-- .element: class="fragment" -->
+- <div> What's next <!-- .element: class="fragment" --> </div>
 
 ---
 
@@ -103,7 +103,7 @@ implicit val handler: Interact.Handler[Future] = new Interact.Handler[Future] {
 
 ---
 
-## Predictable Workflow
+## Freestyle's Workflow
 
 - Declare your algebras <!-- .element: class="fragment" -->
 - Group them into modules <!-- .element: class="fragment" -->
@@ -113,7 +113,7 @@ implicit val handler: Interact.Handler[Future] = new Interact.Handler[Future] {
 
 ---
 
-## Predictable Workflow
+## Freestyle's Workflow
 
 Declare your algebras
 
@@ -137,7 +137,7 @@ object algebras {
 
 ---
 
-## Predictable Workflow
+## Freestyle's Workflow
 
 Combine your algebras in arbitrarily nested modules
 
@@ -163,7 +163,7 @@ object modules {
 
 ---
 
-## Predictable Workflow
+## Freestyle's Workflow
 
 Declare and compose programs
 
@@ -184,7 +184,7 @@ def program[F[_]]
 
 ---
 
-## Predictable Workflow
+## Freestyle's Workflow
 
 Provide implicit evidence of your handlers to any desired target `M[_]`
 
@@ -209,9 +209,9 @@ implicit val validationHandler: Validation.Handler[Target] = new Validation.Hand
 
 ---
 
-## Predictable Workflow
+## Freestyle's Workflow
 
-Run your program to your desired `M[_]`
+Run your program to your desired target `M[_]`
 
 ```scala
 import modules._
@@ -322,30 +322,30 @@ programErrors[v.ValidationM.Op].interpret[ValidationResult].runEmpty.value
 
 An alternative to monad transformers
 
-<div> error: Signal errors </div> <!-- .element: class="fragment" -->
-<div> either: Flattens if `Right` / short-circuit `Left` </div> <!-- .element: class="fragment" -->
-<div> option: Flatten `Some` / short-circuit on `None` </div> <!-- .element: class="fragment" -->
-<div> reader: Deffer dependency injection until program interpretation </div> <!-- .element: class="fragment" -->
-<div> writer: Log / Accumulate values </div> <!-- .element: class="fragment" -->
-<div> state: Pure functional state threaded over the program monadic sequence </div> <!-- .element: class="fragment" -->
-<div> traverse: Generators over `Foldable` </div> <!-- .element: class="fragment" -->
-<div> validation: Accumulate and inspect errors throughout the monadic sequence </div> <!-- .element: class="fragment" -->
-<div> async: Integrate with callback based API's </div> <!-- .element: class="fragment" -->
+- <div> **error**: Signal errors </div> <!-- .element: class="fragment" -->
+- <div> **either**: Flattens if `Right` / short-circuit `Left` </div> <!-- .element: class="fragment" -->
+- <div> **option**: Flatten `Some` / short-circuit on `None` </div> <!-- .element: class="fragment" -->
+- <div> **reader**: Deffer dependency injection until program interpretation </div> <!-- .element: class="fragment" -->
+- <div> **writer**: Log / Accumulate values </div> <!-- .element: class="fragment" -->
+- <div> **state**: Pure functional state threaded over the program monadic sequence </div> <!-- .element: class="fragment" -->
+- <div> **traverse**: Generators over `Foldable` </div> <!-- .element: class="fragment" -->
+- <div> **validation**: Accumulate and inspect errors throughout the monadic sequence </div> <!-- .element: class="fragment" -->
+- <div> **async**: Integrate with callback based API's </div> <!-- .element: class="fragment" -->
 
 ---
 
 ## Integrations
 
-<div> Monix: Target runtime and `async` effect integration. </div> <!-- .element: class="fragment" -->
-<div> Fetch: Algebra to run fetch instances + Auto syntax `Fetch -> FS`. </div> <!-- .element: class="fragment" -->
-<div> FS2: Embed FS2 `Stream` in Freestyle programs. </div> <!-- .element: class="fragment" -->
-<div> Doobie: Embed `ConnectionIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
-<div> Slick: Embed `DBIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
-<div> Akka Http: `EntityMarshaller`s to return Freestyle programs in Akka-Http endpoints. </div> <!-- .element: class="fragment" -->
-<div> Play: Implicit conversions to return Freestyle programs in Play Actions. </div> <!-- .element: class="fragment" -->
-<div> Twitter Util: `Capture` instances for Twitter's `Future` & `Try`. </div> <!-- .element: class="fragment" -->
-<div> Finch: Mapper instances to return Freestyle programs in Finch endpoints. </div> <!-- .element: class="fragment" -->
-<div> Http4s: `EntityEncoder` instance to return Freestyle programs in Http4S endpoints. </div> <!-- .element: class="fragment" -->
+- <div> **Monix**: Target runtime and `async` effect integration. </div> <!-- .element: class="fragment" -->
+- <div> **Fetch**: Algebra to run fetch instances + Auto syntax `Fetch -> FS`. </div> <!-- .element: class="fragment" -->
+- <div> **FS2**: Embed FS2 `Stream` in Freestyle programs. </div> <!-- .element: class="fragment" -->
+- <div> **Doobie**: Embed `ConnectionIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
+- <div> **Slick**: Embed `DBIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
+- <div> **Akka Http**: `EntityMarshaller`s to return Freestyle programs in Akka-Http endpoints. </div> <!-- .element: class="fragment" -->
+- <div> **Play**: Implicit conversions to return Freestyle programs in Play Actions. </div> <!-- .element: class="fragment" -->
+- <div> **Twitter Util**: `Capture` instances for Twitter's `Future` & `Try`. </div> <!-- .element: class="fragment" -->
+- <div> **Finch**: Mapper instances to return Freestyle programs in Finch endpoints. </div> <!-- .element: class="fragment" -->
+- <div> **Http4s**: `EntityEncoder` instance to return Freestyle programs in Http4S endpoints. </div> <!-- .element: class="fragment" -->
 
 ---
 
@@ -450,7 +450,7 @@ with `cats.data.EitherK`
 
 (Work in progress)
 
-Optimizations over the pattern matching of `FunctionK` for user defined actions to translate them
+Optimizations over the pattern matching of `FunctionK` for user defined algebras to translate them
 into a JVM switch with `@scala.annotation.switch`.
 
 ---
@@ -471,13 +471,41 @@ program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] w
 
 ## What's next?
 
-- More integrations
-- More syntax and runtime optimizations
-- IntelliJ IDEA support (scala meta)
-- Akka actors integration
-- Kafka client library
-- Cassandra client library
-- Microservice / RPC modules (Derive typesafe client and endpoints based on Protocol definitions)
+- More integrations <!-- .element: class="fragment" -->
+- More syntax and runtime optimizations <!-- .element: class="fragment" -->
+- IntelliJ IDEA support (scala meta) <!-- .element: class="fragment" -->
+- Akka actors integration <!-- .element: class="fragment" -->
+- Kafka client library <!-- .element: class="fragment" -->
+- Cassandra client library <!-- .element: class="fragment" -->
+- Microservice / RPC modules (Derive typesafe client and endpoints based on Protocol definitions) <!-- .element: class="fragment" -->
+
+---
+
+### Brought to you by... #
+
+```
+[colin-passiv](https://github.com/colin-passiv)
+Adrián Ramírez Fornell <[AdrianRaFo](https://github.com/AdrianRaFo)>
+Alejandro Gómez <[dialelo](https://github.com/dialelo)>
+Ana Mª Marquez <[anamariamv](https://github.com/anamariamv)>
+Andy Scott <[andyscott](https://github.com/andyscott)>
+Diego Esteban Alonso Blas <[diesalbla](https://github.com/diesalbla)>
+Domingo Valera <[dominv](https://github.com/dominv)>
+Fede Fernández <[fedefernandez](https://github.com/fedefernandez)>
+Francisco Diaz <[franciscodr](https://github.com/franciscodr)>
+Giovanni Ruggiero <[gruggiero](https://github.com/gruggiero)>
+Javi Pacheco <[javipacheco](https://github.com/javipacheco)>
+Javier de Silóniz Sandino <[jdesiloniz](https://github.com/jdesiloniz)>
+Jisoo Park <[guersam](https://github.com/guersam)>
+Jorge Galindo <[jorgegalindocruces](https://github.com/jorgegalindocruces)>
+Juan Pedro Moreno <[juanpedromoreno](https://github.com/juanpedromoreno)>
+Juan Ramón González <[jrgonzalezg](https://github.com/jrgonzalezg)>
+Maureen Elsberry  <[MaureenElsberry](https://github.com/MaureenElsberry)>
+Peter Neyens <[peterneyens](https://github.com/peterneyens)>
+Raúl Raja Martínez <[raulraja](https://github.com/raulraja)>
+Sam Halliday <[fommil](https://github.com/fommil)>
+Suhas Gaddam <[suhasgaddam](https://github.com/suhasgaddam)>
+```
 
 ---
 
@@ -485,5 +513,3 @@ program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] w
 
 http://frees.io
 @raulraja @47deg
-
----
