@@ -442,7 +442,11 @@ val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
 Freestyle does not suffer from degrading performance as the number of Algebras increases in contrast
 with `cats.data.EitherK`
 
-<object data="iota_bench.svg">Iota Benchmark Image</object>
+<canvas id="bench-coproduct" width="400" height="400"></canvas>
+
+<script>
+renderCoproductGraph();
+</script>
 
 ---
 
@@ -452,6 +456,12 @@ with `cats.data.EitherK`
 
 Optimizations over the pattern matching of `FunctionK` for user defined algebras to translate them
 into a JVM switch with `@scala.annotation.switch`.
+
+<canvas id="bench-functionk" width="400" height="400"></canvas>
+
+<script>
+$( document ).ready(function() { renderFunctionKGraph(); });
+</script>
 
 ---
 
@@ -478,6 +488,13 @@ program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] w
 - Kafka client library <!-- .element: class="fragment" -->
 - Cassandra client library <!-- .element: class="fragment" -->
 - Microservice / RPC modules (Derive typesafe client and endpoints based on Protocol definitions) <!-- .element: class="fragment" -->
+
+---
+
+### Inspired by ###
+
+- <[Cats](http://typelevel.org/cats/)>
+- <[Simulacrum](https://github.com/mpilquist/simulacrum)> 
 
 ---
 

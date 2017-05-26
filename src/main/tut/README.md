@@ -442,7 +442,11 @@ val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
 Freestyle does not suffer from degrading performance as the number of Algebras increases in contrast
 with `cats.data.EitherK`
 
-<object data="iota_bench.svg">Iota Benchmark Image</object>
+<canvas id="bench-coproduct" width="400" height="400"></canvas>
+
+<script>
+renderCoproductGraph();
+</script>
 
 ---
 
@@ -452,6 +456,12 @@ with `cats.data.EitherK`
 
 Optimizations over the pattern matching of `FunctionK` for user defined algebras to translate them
 into a JVM switch with `@scala.annotation.switch`.
+
+<canvas id="bench-functionk" width="400" height="400"></canvas>
+
+<script>
+$( document ).ready(function() { renderFunctionKGraph(); });
+</script>
 
 ---
 
