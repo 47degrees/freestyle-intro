@@ -1,12 +1,3 @@
-<!-- .slide: class="intro" -->
-
-![Freestyle Logo](custom/images/freestyle-logo.png)
-
-# FREESTYLE
-
-A COHESIVE & PRAGMATIC FRAMEWORK OF FP CENTRIC SCALA LIBRARIES
-
----
 
 <!-- .slide: class="center" -->
 
@@ -442,7 +433,7 @@ val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
 Freestyle does not suffer from degrading performance as the number of Algebras increases in contrast
 with `cats.data.EitherK`
 
-<canvas id="bench-coproduct" width="400" height="400"></canvas>
+<canvas id="bench-coproduct"></canvas>
 
 <script>
 renderCoproductGraph();
@@ -457,7 +448,7 @@ renderCoproductGraph();
 Optimizations over the pattern matching of `FunctionK` for user defined algebras to translate them
 into a JVM switch with `@scala.annotation.switch`.
 
-<canvas id="bench-functionk" width="400" height="400"></canvas>
+<canvas id="bench-functionk"></canvas>
 
 <script>
 $( document ).ready(function() { renderFunctionKGraph(); });
