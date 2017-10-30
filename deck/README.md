@@ -110,6 +110,7 @@ Declare your algebras
 
 ```scala
 import freestyle._
+import freestyle.tagless._
 
 object algebras {
   /* Handles user interaction */
@@ -159,13 +160,13 @@ object modules {
 Declare and compose programs
 
 ```scala
-import cats.syntax.cartesian._
+import cats.implicits._
 
 def program[F[_]]
   (implicit I: Interact[F], R: st.StateM[F], E: ErrorM[F], V: Validation.StackSafe[F]): FreeS[F, Unit] = {
   for {
     cat <- I.ask("What's the kitty's name?")
-    isValid <- (V.minSize(cat, 5) |@| V.hasNumber(cat)).map(_ && _) //may run ops in parallel
+    isValid <- (V.minSize(cat, 5), V.hasNumber(cat)).mapN(_ && _) //may run ops in parallel
     _ <- if (isValid) R.modify(cat :: _) else E.error(new RuntimeException("invalid name!"))
     cats <- R.get
     _ <- I.tell(cats.toString)
@@ -180,21 +181,20 @@ def program[F[_]]
 Provide implicit evidence of your handlers to any desired target `M[_]`
 
 ```scala
-import monix.eval.Task
-import monix.cats._
-import cats.syntax.flatMap._
+import cats.effect.IO
+import cats.effect.implicits._
 import cats.data.StateT
 
-type Target[A] = StateT[Task, List[String], A]
+type Target[A] = StateT[IO, List[String], A]
 
 implicit val interactHandler: Interact.Handler[Target] = new Interact.Handler[Target] {
-  def ask(prompt: String): Target[String] = tell(prompt) >> StateT.lift(Task.now("Isidoro1"))
-  def tell(msg: String): Target[Unit] = StateT.lift(Task { println(msg) })
+  def ask(prompt: String): Target[String] = tell(prompt) >> StateT.lift("Isidoro1".pure[IO])
+  def tell(msg: String): Target[Unit] = StateT.lift(IO { println(msg) })
 }
 
 implicit val validationHandler: Validation.Handler[Target] = new Validation.Handler[Target] {
-  def minSize(s: String, n: Int): Target[Boolean] = StateT.lift(Task.now(s.length >= n))
-  def hasNumber(s: String): Target[Boolean] = StateT.lift(Task.now(s.exists(c => "0123456789".contains(c))))
+  def minSize(s: String, n: Int): Target[Boolean] = StateT.lift((s.length >= n).pure[IO])
+  def hasNumber(s: String): Target[Boolean] = StateT.lift(s.exists(c => "0123456789".contains(c)).pure[IO])
 }
 ```
 
@@ -206,23 +206,21 @@ Run your program to your desired target `M[_]`
 
 ```scala
 import modules._
+// import modules._
+
 import freestyle.implicits._
-import cats.instances.list._
-import monix.execution.Scheduler.Implicits.global
-import scala.concurrent.Await
-import scala.concurrent.duration._
+// import freestyle.implicits._
+
+import cats.mtl.implicits._
+// import cats.mtl.implicits._
 
 val concreteProgram = program[App.Op]
-val state = concreteProgram.interpret[Target]
-val task = state.runEmpty
+// concreteProgram: freestyle.FreeS[modules.App.Op,Unit] = Free(...)
 
-val asyncResult = task.runAsync
+concreteProgram.interpret[Target].runEmpty.unsafeRunSync
 // What's the kitty's name?
-// asyncResult: monix.execution.CancelableFuture[(List[String], Unit)] = monix.execution.CancelableFuture$Implementation@158ce21d
-
-Await.result(asyncResult, 3.seconds)
 // List(Isidoro1)
-// res0: (List[String], Unit) = (List(Isidoro1),())
+// res6: (List[String], Unit) = (List(Isidoro1),())
 ```
 
 ---
@@ -233,10 +231,13 @@ Error
 
 ```scala
 import freestyle.effects.error._
-import freestyle.effects.error.implicits._
-import cats.instances.either._
+// import freestyle.effects.error._
+
+import freestyle.effects.implicits._
+// import freestyle.effects.implicits._
 
 type EitherTarget[A] = Either[Throwable, A]
+// defined type alias EitherTarget
 
 def shortCircuit[F[_]: ErrorM] =
   for {
@@ -244,12 +245,14 @@ def shortCircuit[F[_]: ErrorM] =
     b <- ErrorM[F].error[Int](new RuntimeException("BOOM"))
     c <- FreeS.pure(1)
   } yield a + b + c
+// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
+// shortCircuit: [F[_]](implicit evidence$1: freestyle.effects.error.ErrorM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],Int]
 
 shortCircuit[ErrorM.Op].interpret[EitherTarget]
-// res1: EitherTarget[Int] = Left(java.lang.RuntimeException: BOOM)
+// res7: EitherTarget[Int] = Left(java.lang.RuntimeException: BOOM)
 
-shortCircuit[ErrorM.Op].interpret[Task]
-// res2: monix.eval.Task[Int] = Task.FlatMap(Task.Suspend(monix.eval.Task$$$Lambda$9224/1847650055@614aa803), monix.eval.Task$$$Lambda$9225/164912834@76271a7)
+shortCircuit[ErrorM.Op].interpret[IO].attempt.unsafeRunSync
+// res8: Either[Throwable,Int] = Left(java.lang.RuntimeException: BOOM)
 ```
 
 ---
@@ -260,9 +263,7 @@ Option
 
 ```scala
 import freestyle.effects.option._
-import freestyle.effects.option.implicits._
-import cats.instances.option._
-import cats.instances.list._
+// import freestyle.effects.option._
 
 def programNone[F[_]: OptionM] =
   for {
@@ -270,12 +271,14 @@ def programNone[F[_]: OptionM] =
     b <- OptionM[F].option[Int](None)
     c <- FreeS.pure(1)
   } yield a + b + c
+// warning: there was one feature warning; for details, enable `:setting -feature' or `:replay -feature'
+// programNone: [F[_]](implicit evidence$1: freestyle.effects.option.OptionM[F])cats.free.Free[[β$0$]cats.free.FreeApplicative[F,β$0$],Int]
 
 programNone[OptionM.Op].interpret[Option]
-// res3: Option[Int] = None
+// res9: Option[Int] = None
 
 programNone[OptionM.Op].interpret[List]
-// res4: List[Int] = List()
+// res10: List[Int] = List()
 ```
 
 ---
@@ -304,7 +307,7 @@ def programErrors[F[_]: v.ValidationM] =
   } yield errs
 
 programErrors[v.ValidationM.Op].interpret[ValidationResult].runEmpty.value
-// res5: (List[ValidationError], List[ValidationError]) = (List(NotValid(oh no), NotValid(this won't be in errs)),List(NotValid(oh no)))
+// res11: (List[ValidationError], List[ValidationError]) = (List(NotValid(oh no), NotValid(this won't be in errs)),List(NotValid(oh no)))
 ```
 
 ---
@@ -340,68 +343,6 @@ An alternative to monad transformers
 
 ---
 
-## Integrations
-
-1. Create an algebra
-
-```scala
-@free sealed trait DoobieM {
-  def transact[A](f: ConnectionIO[A]): FS[A]
-}
-```
-
----
-
-## Integrations
-
-2. Implement a handler declaring the target `M[_]` and whatever restrictions it may have
-
-```scala
-implicit def freeStyleDoobieHandler[M[_]: Catchable: Suspendable]
-  (implicit xa: Transactor[M]): DoobieM.Handler[M] =
-      new DoobieM.Handler[M] {
-        def transact[A](fa: ConnectionIO[A]): M[A] = fa.transact(xa)
-      }
-```
-
----
-
-## Integrations
-
-3. Optionally provide syntax for easy embedding into program's flow
-
-```scala
-implicit def freeSLiftDoobie[F[_]: DoobieM]: FreeSLift[F, ConnectionIO] =
-  new FreeSLift[F, ConnectionIO] {
-    def liftFSPar[A](cio: ConnectionIO[A]): FreeS.Par[F, A] = DoobieM[F].transact(cio)
-  }
-```
-
----
-
-## Integrations
-
-4. Use third party types interleaved with other algebras and effects
-
-```scala
-def loadUser[F[_]]
-  (userId: UserId)
-  (implicit
-    doobie: DoobieM[F],
-    logging: LoggingM[F]): FreeS[F, User] = {
-    import doobie.implicits._
-    for {
-      user <- sql"SELECT * FROM User WHERE userId = $userId"
-                .query[User]
-                .unique
-                .liftFS[F]
-      - <- logging.debug(s"Loaded User: ${user.userId}")
-    } yield user
-}
-```
-
----
-
 ## Optimizations
 
 Freestyle provides optimizations for Free + Inject + Coproduct compositions as in
@@ -416,14 +357,18 @@ Freestyle provides optimizations for Free + Inject + Coproduct compositions as i
 
 ```scala
 import iota._
+// import iota._
+
 import iota.debug.options.ShowTrees
+// import iota.debug.options.ShowTrees
 
 val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
-// <console>:90: generated tree:
-// {
-//   final class $anon extends _root_.iota.CopKFunctionK[Op, Target] {
-//     private[this] val arr0 = scala.Predef.implicitly[cats.arrow.FunctionK[st.StateM.Op, Target]](st.implicits.freestyleStateMHandler[Target](cats.data.StateT.catsDataMonadStateForStateT[monix.eval.Task, List[String]](monix.cats.`package`.monixToCatsMonadRec[monix.eval.Task](monix.eval.Task.typeClassInstances)))).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
-//     private[this] val arr1 = scala.Predef.implicitly[cats.arrow.FunctionK[freestyle.effects.error.ErrorM.Op, Target]](freestyle.effects.error.implicits.freeStyleErrorMHandler[Target](cats.data.StateT.catsDataMonadErrorForStateT[monix.eval.Task, List[String], Throwable](monix.cats.`package`.monixToCatsMonadError[monix.eval.Tas...interpreter: freestyle.FSHandler[modules.App.Op,Target] = CopKFunctionK[Op, Target]<<generated>>
+// <console>:73: {
+//   class CopKFunctionK$macro$2 extends _root_.iota.internal.FastFunctionK[Op, Target] {
+//     private[this] val arr0 = scala.Predef.implicitly[cats.arrow.FunctionK[algebras.Validation.StackSafe.Op, Target]](algebras.this.Validation.stackSafeHandler$17[Target](cats.data.StateT.catsDataMonadErrorForStateT[cats.effect.IO, List[String], Throwable](cats.effect.IO.ioEffect), validationHandler)).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
+//     private[this] val arr1 = scala.Predef.implicitly[cats.arrow.FunctionK[algebras.Interact.Op, Target]](interactHandler).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
+//     private[this] val arr2 = scala.Predef.implicitly[cats.arrow.FunctionK[freestyle.effects.error.ErrorM.Op, Target]](freestyle.effects.implicits.free...
+// interpreter: freestyle.FSHandler[modules.App.Op,Target] = FastFunctionK[modules.App.Op, Target]<<generated>>
 ```
 
 ---
@@ -443,8 +388,6 @@ renderCoproductGraph();
 
 ## Optimizations
 
-(Work in progress)
-
 Optimizations over the pattern matching of `FunctionK` for user defined algebras to translate them
 into a JVM switch with `@scala.annotation.switch`.
 
@@ -457,8 +400,6 @@ $( document ).ready(function() { renderFunctionKGraph(); });
 ---
 
 ## Optimizations
-
-(Work in progress)
 
 Brings ADT-less stack safety to `@tagless` Algebras
 without rewriting interpreters to `Free[M, ?]` where `M[_]` is stack unsafe.
