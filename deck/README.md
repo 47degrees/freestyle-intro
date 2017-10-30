@@ -21,17 +21,19 @@
 - Approachable to newcomers <!-- .element: class="fragment" -->
 - Stack-safe <!-- .element: class="fragment" -->
 - Dead simple integrations with Scala's library ecosystem <!-- .element: class="fragment" -->
+- Help you build pure fP apps and libs <!-- .element: class="fragment" -->
+
 
 ---
 
 ## In this talk
 
 - <div> Freestyle programming style </div> <!-- .element: class="fragment" -->
-- <div> **@free**, **@tagless**, **@modules** </div> <!-- .element: class="fragment" -->
+- <div> **@free**, **@tagless**, **@module**, **@service** </div> <!-- .element: class="fragment" -->
 - <div> Effects </div><!-- .element: class="fragment" -->
 - <div> Integrations </div><!-- .element: class="fragment" -->
 - <div> Optimizations (iota Coproduct, stack-safe @tagless) </div> <!-- .element: class="fragment" -->
-- <div> What's next <!-- .element: class="fragment" --> </div>
+- <div> RPC based Microservices <!-- .element: class="fragment" -->
 
 ---
 
@@ -131,7 +133,7 @@ object algebras {
 
 ## Freestyle's Workflow
 
-Combine your algebras in arbitrarily nested modules
+Group them into modules
 
 ```scala
 import algebras._
@@ -285,35 +287,6 @@ programNone[OptionM.Op].interpret[List]
 
 ## Effects
 
-Validation
-
-```scala
-import freestyle.effects.validation
-import cats.data.State
-
-sealed trait ValidationError
-case class NotValid(explanation: String) extends ValidationError
-
-val v = validation[ValidationError]
-import v.implicits._
-
-type ValidationResult[A] = State[List[ValidationError], A]
-
-def programErrors[F[_]: v.ValidationM] =
-  for {
-    _ <- v.ValidationM[F].invalid(NotValid("oh no"))
-    errs <- v.ValidationM[F].errors
-    _ <- v.ValidationM[F].invalid(NotValid("this won't be in errs"))
-  } yield errs
-
-programErrors[v.ValidationM.Op].interpret[ValidationResult].runEmpty.value
-// res11: (List[ValidationError], List[ValidationError]) = (List(NotValid(oh no), NotValid(this won't be in errs)),List(NotValid(oh no)))
-```
-
----
-
-## Effects
-
 An alternative to monad transformers
 
 - <div> **error**: Signal errors </div> <!-- .element: class="fragment" -->
@@ -343,6 +316,15 @@ An alternative to monad transformers
 
 ---
 
+## Standalone libraries (WIP)
+
+- <div> **frees-kafka**: Consumer, Producer and Streaming algebras for Kafka </div> <!-- .element: class="fragment" -->
+- <div> **frees-cassandra**: Algebras for Cassandra API's, object mapper and type safe query compile time validation. </div> <!-- .element: class="fragment" -->
+- <div> **frees-rpc**: Purely functional RPC Services. </div> <!-- .element: class="fragment" -->
+- <div> **frees-microservices**: Purely functional monitored microservices. </div> <!-- .element: class="fragment" -->
+
+---
+
 ## Optimizations
 
 Freestyle provides optimizations for Free + Inject + Coproduct compositions as in
@@ -363,7 +345,7 @@ import iota.debug.options.ShowTrees
 // import iota.debug.options.ShowTrees
 
 val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
-// <console>:73: {
+// <console>:67: {
 //   class CopKFunctionK$macro$2 extends _root_.iota.internal.FastFunctionK[Op, Target] {
 //     private[this] val arr0 = scala.Predef.implicitly[cats.arrow.FunctionK[algebras.Validation.StackSafe.Op, Target]](algebras.this.Validation.stackSafeHandler$17[Target](cats.data.StateT.catsDataMonadErrorForStateT[cats.effect.IO, List[String], Throwable](cats.effect.IO.ioEffect), validationHandler)).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
 //     private[this] val arr1 = scala.Predef.implicitly[cats.arrow.FunctionK[algebras.Interact.Op, Target]](interactHandler).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
@@ -411,15 +393,117 @@ program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] w
 
 ---
 
-## What's next?
+## Freestyle RPC
 
-- More integrations <!-- .element: class="fragment" -->
-- More syntax and runtime optimizations <!-- .element: class="fragment" -->
-- IntelliJ IDEA support (scala meta) <!-- .element: class="fragment" -->
-- Akka actors integration <!-- .element: class="fragment" -->
-- Kafka client library <!-- .element: class="fragment" -->
-- Cassandra client library <!-- .element: class="fragment" -->
-- Microservice / RPC modules (Derive typesafe client and endpoints based on Protocol definitions) <!-- .element: class="fragment" -->
+Define your proto messages
+
+```scala
+import freestyle._
+import freestyle.rpc.protocol._
+
+trait ProtoMessages {
+  
+  @message
+  case class Point(latitude: Int, longitude: Int)
+  
+  @message
+  case class Rectangle(lo: Point, hi: Point)
+  
+  @message
+  case class Feature(name: String, location: Point)
+  
+  @message
+  case class FeatureDatabase(feature: List[Feature])
+  
+  @message
+  case class RouteNote(location: Point, message: String)
+  
+  @message
+  case class RouteSummary(point_count: Int, feature_count: Int, distance: Int, elapsed_time: Int)
+
+}
+```
+
+---
+
+## Freestyle RPC
+
+Expose Algebras as RPC services
+
+```scala
+import monix.reactive.Observable
+
+@option(name = "java_package", value = "routeguide", quote = true)
+@option(name = "java_multiple_files", value = "true", quote = false)
+@option(name = "java_outer_classname", value = "RouteGuide", quote = true)
+object protocols extends ProtoMessages {
+
+  @free
+  @service
+  trait RouteGuideService {
+
+    @rpc 
+    def getFeature(point: Point): FS[Feature]
+
+    @rpc
+    @stream[ResponseStreaming.type]
+    def listFeatures(rectangle: Rectangle): FS[Observable[Feature]]
+
+    @rpc
+    @stream[RequestStreaming.type]
+    def recordRoute(points: Observable[Point]): FS[RouteSummary]
+
+    @rpc
+    @stream[BidirectionalStreaming.type]
+    def routeChat(routeNotes: Observable[RouteNote]): FS[Observable[RouteNote]]
+  }
+
+}
+```
+
+---
+
+## Freestyle RPC gives you for free:
+
+- <div> **gRPC Server**: gRPC based server. </div> <!-- .element: class="fragment" -->
+- <div> **client** gRPC client. </div> <!-- .element: class="fragment" -->
+- <div> **.proto** files to interoperate with other langs. </div> <!-- .element: class="fragment" -->
+
+---
+
+## Scala First, FP first approach to .proto generation
+
+```bash
+sbt protoGen
+```
+
+---
+
+## Scala FP First approach to **.proto** generation
+
+Find a complete example at [https://github.com/frees-io/freestyle-rpc-examples](https://github.com/frees-io/freestyle-rpc-examples)
+
+```protobuf
+syntax = "proto3";
+
+option java_package = "routeguide";
+option java_multiple_files = true;
+option java_outer_classname = "RouteGuide";
+
+message Point {
+   int32 latitude = 1;
+   int32 longitude = 2;
+}
+           
+...
+           
+service RouteGuideService {
+   rpc getFeature (Point) returns (Feature) {}
+   rpc listFeatures (Rectangle) returns (stream Feature) {}
+   rpc recordRoute (stream Point) returns (RouteSummary) {}
+   rpc routeChat (stream RouteNote) returns (stream RouteNote) {}
+}
+```
 
 ---
 
