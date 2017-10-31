@@ -5,14 +5,10 @@
 
 - No previous CT knowledge or math foundations <!-- .element: class="fragment" -->
 - Leaving styles one is used to (ex. OOP) <!-- .element: class="fragment" -->
-- Lack of docs on how to properly use Monad Transformers and other techniques required to do concise FP. <!-- .element: class="fragment" -->
+- Lack of docs on how to properly use MTL/Tagless and other techniques required for concise FP. <!-- .element: class="fragment" -->
 - Rapid changing ecosystem <!-- .element: class="fragment" -->
-- Scala has not been designed to support first class typeclasses, sum types, etc. <!-- .element: class="fragment" -->
-- Proliferation of IO-like types <!-- .element: class="fragment" -->
-    - scala.concurrent.Future
-    - fs2.Task
-    - monix.eval.Task
-    - cats.effects.IO
+- Scala's encoding <!-- .element: class="fragment" -->
+- Lack of good examples where FP is applied <!-- .element: class="fragment" -->
 
 ---
 
@@ -22,7 +18,7 @@
 - Stack-safe <!-- .element: class="fragment" -->
 - Dead simple integrations with Scala's library ecosystem <!-- .element: class="fragment" -->
 - Help you build pure FP apps, libs & micro-services <!-- .element: class="fragment" -->
-
+- Pragmatism <!-- .element: class="fragment" -->
 
 ---
 
@@ -159,11 +155,39 @@ object modules {
 
 ## Freestyle's Workflow
 
-Declare and compose programs
+Declare and compose programs inside `@free`, `@tagless` or `@module`
 
 ```tut:silent
 import cats.implicits._
 
+object modules {
+
+  @module trait App {
+    val validation: Validation.StackSafe
+    val interact: Interact
+    val errorM : ErrorM
+    val persistence: st.StateM
+    
+    def program: FS.Seq[Unit] = 
+      for {
+        cat <- interact.ask("What's the kitty's name?")
+        isValid <- (validation.minSize(cat, 5), validation.hasNumber(cat)).mapN(_ && _) //may run ops in parallel
+        _ <- if (isValid) persistence.modify(cat :: _) else errorM.error(new RuntimeException("invalid name!"))
+        cats <- persistence.get
+        _ <- interact.tell(cats.toString)
+      } yield ()
+  }
+
+}
+```
+
+---
+
+## Freestyle's Workflow
+
+Declare and compose programs anywhere else
+
+```tut:silent
 def program[F[_]]
   (implicit I: Interact[F], R: st.StateM[F], E: ErrorM[F], V: Validation.StackSafe[F]): FreeS[F, Unit] = {
   for {
@@ -219,6 +243,22 @@ concreteProgram.interpret[Target].runEmpty.unsafeRunSync
 
 ## Effects
 
+An alternative to monad transformers
+
+- <div> **error**: Signal errors </div> <!-- .element: class="fragment" -->
+- <div> **either**: Flattens if `Right` / short-circuit `Left` </div> <!-- .element: class="fragment" -->
+- <div> **option**: Flatten `Some` / short-circuit on `None` </div> <!-- .element: class="fragment" -->
+- <div> **reader**: Deffer dependency injection until program interpretation </div> <!-- .element: class="fragment" -->
+- <div> **writer**: Log / Accumulate values </div> <!-- .element: class="fragment" -->
+- <div> **state**: Pure functional state threaded over the program monadic sequence </div> <!-- .element: class="fragment" -->
+- <div> **traverse**: Generators over `Foldable` </div> <!-- .element: class="fragment" -->
+- <div> **validation**: Accumulate and inspect errors throughout the monadic sequence </div> <!-- .element: class="fragment" -->
+- <div> **async**: Integrate with callback based API's </div> <!-- .element: class="fragment" -->
+
+---
+
+## Effects
+
 Error
 
 ```tut:book
@@ -258,46 +298,6 @@ programNone[OptionM.Op].interpret[Option]
 
 programNone[OptionM.Op].interpret[List]
 ```
-
----
-
-## Effects
-
-An alternative to monad transformers
-
-- <div> **error**: Signal errors </div> <!-- .element: class="fragment" -->
-- <div> **either**: Flattens if `Right` / short-circuit `Left` </div> <!-- .element: class="fragment" -->
-- <div> **option**: Flatten `Some` / short-circuit on `None` </div> <!-- .element: class="fragment" -->
-- <div> **reader**: Deffer dependency injection until program interpretation </div> <!-- .element: class="fragment" -->
-- <div> **writer**: Log / Accumulate values </div> <!-- .element: class="fragment" -->
-- <div> **state**: Pure functional state threaded over the program monadic sequence </div> <!-- .element: class="fragment" -->
-- <div> **traverse**: Generators over `Foldable` </div> <!-- .element: class="fragment" -->
-- <div> **validation**: Accumulate and inspect errors throughout the monadic sequence </div> <!-- .element: class="fragment" -->
-- <div> **async**: Integrate with callback based API's </div> <!-- .element: class="fragment" -->
-
----
-
-## Integrations
-
-- <div> **Monix**: Target runtime and `async` effect integration. </div> <!-- .element: class="fragment" -->
-- <div> **Fetch**: Algebra to run fetch instances + Auto syntax `Fetch -> FS`. </div> <!-- .element: class="fragment" -->
-- <div> **FS2**: Embed FS2 `Stream` in Freestyle programs. </div> <!-- .element: class="fragment" -->
-- <div> **Doobie**: Embed `ConnectionIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
-- <div> **Slick**: Embed `DBIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
-- <div> **Akka Http**: `EntityMarshaller`s to return Freestyle programs in Akka-Http endpoints. </div> <!-- .element: class="fragment" -->
-- <div> **Play**: Implicit conversions to return Freestyle programs in Play Actions. </div> <!-- .element: class="fragment" -->
-- <div> **Twitter Util**: `Capture` instances for Twitter's `Future` & `Try`. </div> <!-- .element: class="fragment" -->
-- <div> **Finch**: Mapper instances to return Freestyle programs in Finch endpoints. </div> <!-- .element: class="fragment" -->
-- <div> **Http4s**: `EntityEncoder` instance to return Freestyle programs in Http4S endpoints. </div> <!-- .element: class="fragment" -->
-
----
-
-## Standalone libraries (WIP)
-
-- <div> **frees-kafka**: Consumer, Producer and Streaming algebras for Kafka </div> <!-- .element: class="fragment" -->
-- <div> **frees-cassandra**: Algebras for Cassandra API's, object mapper and type safe query compile time validation. </div> <!-- .element: class="fragment" -->
-- <div> **frees-rpc**: Purely functional RPC Services. </div> <!-- .element: class="fragment" -->
-- <div> **frees-microservices**: Purely functional monitored microservices. </div> <!-- .element: class="fragment" -->
 
 ---
 
@@ -359,6 +359,31 @@ program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] w
 ```
 
 ---
+
+## Integrations
+
+- <div> **Monix**: Target runtime and `async` effect integration. </div> <!-- .element: class="fragment" -->
+- <div> **Fetch**: Algebra to run fetch instances + Auto syntax `Fetch -> FS`. </div> <!-- .element: class="fragment" -->
+- <div> **FS2**: Embed FS2 `Stream` in Freestyle programs. </div> <!-- .element: class="fragment" -->
+- <div> **Doobie**: Embed `ConnectionIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
+- <div> **Slick**: Embed `DBIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
+- <div> **Akka Http**: `EntityMarshaller`s to return Freestyle programs in Akka-Http endpoints. </div> <!-- .element: class="fragment" -->
+- <div> **Play**: Implicit conversions to return Freestyle programs in Play Actions. </div> <!-- .element: class="fragment" -->
+- <div> **Twitter Util**: `Capture` instances for Twitter's `Future` & `Try`. </div> <!-- .element: class="fragment" -->
+- <div> **Finch**: Mapper instances to return Freestyle programs in Finch endpoints. </div> <!-- .element: class="fragment" -->
+- <div> **Http4s**: `EntityEncoder` instance to return Freestyle programs in Http4S endpoints. </div> <!-- .element: class="fragment" -->
+
+---
+
+## Standalone libraries (WIP)
+
+- <div> **frees-kafka**: Consumer, Producer and Streaming algebras for Kafka </div> <!-- .element: class="fragment" -->
+- <div> **frees-cassandra**: Algebras for Cassandra API's, object mapper and type safe query compile time validation. </div> <!-- .element: class="fragment" -->
+- <div> **frees-rpc**: Purely functional RPC Services. </div> <!-- .element: class="fragment" -->
+- <div> **frees-microservices**: Purely functional monitored microservices. </div> <!-- .element: class="fragment" -->
+
+---
+
 
 ## Freestyle RPC
 
@@ -475,19 +500,30 @@ service RouteGuideService {
 
 ## Freestyle Microservices
 
-Provides a reference impl based on RPC, Kafka y Cassandra 
+Provides a reference impl over RPC optionally including Kafka & Cassandra Algebras and Handlers
+
+(WIP unfinished design)
 
 ```scala
+
 @free
 @service
-trait RouteGuideService {
+trait MyService {
 
-  @subscribed("topicName")
-  def consumeEvent(c: Consumer, e: Event): FS[EventAck]
-
-  ...
+  @subscribe[Topic.type]
+  def listen(r: ConsumerRecord[Topic#Key, Topic#Value]): FS[Ack]
  
 }
+
+implicit def myServiceHandler
+  (implicit 
+     producer: Producer[Topic#Key, Topic#Value],
+     persistence: Persistence[MyModel]): RouteGuideService.Handler[IO] = 
+  new RouteGuideService.Handler[IO] {
+
+    def listen(r: ConsumerRecord[Topic#Key, Topic#Value]): IO[Ack] = ???
+ 
+  }
 ```
 
 ---
@@ -502,8 +538,12 @@ Lightweight monitoring of micro-services through automatic routes
 
 ### Inspired by ###
 
-- <[Cats](http://typelevel.org/cats/)>
-- <[Simulacrum](https://github.com/mpilquist/simulacrum)> 
+- [**Cats**](http://typelevel.org/cats/)
+- [**Scalaz**](https://github.com/scalaz/scalaz)
+- [**KΛTEGORY**](http://kategory.io/)
+- [**Eff**](http://atnos-org.github.io/eff/)
+- [**Fetch**](http://47deg.github.io/fetch/)
+- [**Simulacrum**](https://github.com/mpilquist/simulacrum)
 
 ---
 
@@ -538,5 +578,7 @@ Suhas Gaddam <[suhasgaddam](https://github.com/suhasgaddam)>
 
 ### Thanks! ###
 
-http://frees.io
-@raulraja @47deg
+- [http://frees.io](http://frees.io)
+- [https://github.com/frees-io/freestyle-rpc-examples](https://github.com/frees-io/freestyle-rpc-examples)
+
+
