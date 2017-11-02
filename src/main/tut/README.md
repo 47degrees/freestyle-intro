@@ -532,7 +532,9 @@ implicit def myServiceHandler
 
 Lightweight monitoring of micro-services through automatic routes 
 
-![OpsCenter](//TODO)
+<div class="imageFull">
+![OpsCenter](custom/images/freestyle-opscenter-ui-cassandra.png)
+</div>
 
 ---
 
