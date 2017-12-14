@@ -1,6 +1,6 @@
 # Freestyle http://frees.io
 
-This presentation shows the current Features available as of Freestyle 0.1.0
+This presentation shows the current Features available as of Freestyle 0.4.6
 
 Freestyle is a library that empowers stack-safe purely functional applications and libraries that support parallel and sequential computations where declaration is decoupled from interpretation. 
 Freestyle encourages programs built atop Free algebras that are interpreted at the edge of your application ensuring effects are localized and performed in a controlled environment. 

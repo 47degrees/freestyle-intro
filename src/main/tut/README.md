@@ -434,18 +434,18 @@ object protocols extends ProtoMessages {
   @service
   trait RouteGuideService {
 
-    @rpc 
+    @rpc(Protobuf) 
     def getFeature(point: Point): FS[Feature]
 
-    @rpc
+    @rpc(Protobuf) 
     @stream[ResponseStreaming.type]
     def listFeatures(rectangle: Rectangle): FS[Observable[Feature]]
 
-    @rpc
+    @rpc(Protobuf) 
     @stream[RequestStreaming.type]
     def recordRoute(points: Observable[Point]): FS[RouteSummary]
 
-    @rpc
+    @rpc(Protobuf) 
     @stream[BidirectionalStreaming.type]
     def routeChat(routeNotes: Observable[RouteNote]): FS[Observable[RouteNote]]
   }
@@ -498,7 +498,7 @@ service RouteGuideService {
 
 ---
 
-## Freestyle Microservices
+## Freestyle Microservices (WIP)
 
 Provides a reference impl over RPC optionally including Kafka & Cassandra Algebras and Handlers
 
@@ -506,7 +506,6 @@ Provides a reference impl over RPC optionally including Kafka & Cassandra Algebr
 
 ```scala
 
-@free
 @service
 trait MyService {
 

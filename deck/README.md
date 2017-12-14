@@ -347,9 +347,9 @@ import iota.debug.options.ShowTrees
 val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
 // <console>:67: {
 //   class CopKFunctionK$macro$2 extends _root_.iota.internal.FastFunctionK[Op, Target] {
-//     private[this] val arr0 = scala.Predef.implicitly[cats.arrow.FunctionK[algebras.Validation.StackSafe.Op, Target]](algebras.this.Validation.stackSafeHandler$17[Target](cats.data.StateT.catsDataMonadErrorForStateT[cats.effect.IO, List[String], Throwable](cats.effect.IO.ioEffect), validationHandler)).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
+//     private[this] val arr0 = scala.Predef.implicitly[cats.arrow.FunctionK[algebras.Validation.StackSafe.Op, Target]](algebras.this.Validation.stackSafeHandler$18[Target](cats.data.IndexedStateT.catsDataMonadErrorForIndexedStateT[cats.effect.IO, List[String], Throwable](cats.effect.IO.ioEffect), validationHandler)).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
 //     private[this] val arr1 = scala.Predef.implicitly[cats.arrow.FunctionK[algebras.Interact.Op, Target]](interactHandler).asInstanceOf[_root_.cats.arrow.FunctionK[Any, Target]];
-//     private[this] val arr2 = scala.Predef.implicitly[cats.arrow.FunctionK[freestyle.effects.error.ErrorM.Op, Target]](freestyle.effects.implicits.free...
+//     private[this] val arr2 = scala.Predef.implicitly[cats.arrow.FunctionK[freestyle.effects.error.ErrorM.Op, Target]](freestyle.effects....
 // interpreter: freestyle.FSHandler[modules.App.Op,Target] = FastFunctionK[modules.App.Op, Target]<<generated>>
 ```
 
@@ -467,18 +467,18 @@ object protocols extends ProtoMessages {
   @service
   trait RouteGuideService {
 
-    @rpc 
+    @rpc(Protobuf) 
     def getFeature(point: Point): FS[Feature]
 
-    @rpc
+    @rpc(Protobuf) 
     @stream[ResponseStreaming.type]
     def listFeatures(rectangle: Rectangle): FS[Observable[Feature]]
 
-    @rpc
+    @rpc(Protobuf) 
     @stream[RequestStreaming.type]
     def recordRoute(points: Observable[Point]): FS[RouteSummary]
 
-    @rpc
+    @rpc(Protobuf) 
     @stream[BidirectionalStreaming.type]
     def routeChat(routeNotes: Observable[RouteNote]): FS[Observable[RouteNote]]
   }
@@ -531,7 +531,7 @@ service RouteGuideService {
 
 ---
 
-## Freestyle Microservices
+## Freestyle Microservices (WIP)
 
 Provides a reference impl over RPC optionally including Kafka & Cassandra Algebras and Handlers
 
@@ -539,7 +539,6 @@ Provides a reference impl over RPC optionally including Kafka & Cassandra Algebr
 
 ```scala
 
-@free
 @service
 trait MyService {
 
