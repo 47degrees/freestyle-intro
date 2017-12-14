@@ -185,7 +185,37 @@ object modules {
 
 ## Freestyle's Workflow
 
-Declare and compose programs anywhere else
+Freestyle is opinionated and wants you to run your effects at the edge
+
+- main (App.interpret)
+
+- App (module)
+    - Validation (algebra)
+    - Interact (algebra)
+    - ErrorM (algebra)
+    - st.StateM (algebra)
+
+---
+
+## Freestyle's Workflow
+
+Freestyle is opinionated and wants you to run your effects at the edge
+
+- main (App.interpret)
+
+- App (module)
+    - Persistence (module)
+        - st.StateM (algebra)
+    - Services (module)
+        - Validation (algebra)
+        - Interact (algebra)
+        - ErrorM (algebra)
+
+---
+
+## Freestyle's Workflow
+
+Declare and compose programs anywhere else outside modules and algebras if needed.
 
 ```tut:silent
 def program[F[_]]
