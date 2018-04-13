@@ -6,6 +6,8 @@ project/boot/
 .cache
 *.class
 *.log
+.DS_Store
+
 
 # sbt specific
 .lib/

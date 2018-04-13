@@ -4,11 +4,8 @@
 ## Getting into typed FP is hard because...
 
 - No previous CT knowledge or math foundations <!-- .element: class="fragment" -->
-- Leaving styles one is used to (ex. OOP) <!-- .element: class="fragment" -->
-- Lack of docs on how to properly use MTL/Tagless and other techniques required for concise FP. <!-- .element: class="fragment" -->
+- Leaving styles one is used to (i.e. OOP) <!-- .element: class="fragment" -->
 - Rapid changing ecosystem <!-- .element: class="fragment" -->
-- Scala's encoding <!-- .element: class="fragment" -->
-- Lack of good examples where FP is applied <!-- .element: class="fragment" -->
 
 ---
 
@@ -18,76 +15,35 @@
 - Stack-safe <!-- .element: class="fragment" -->
 - Dead simple integrations with Scala's library ecosystem <!-- .element: class="fragment" -->
 - Help you build pure FP apps, libs & micro-services <!-- .element: class="fragment" -->
-- Pragmatism <!-- .element: class="fragment" -->
 
 ---
 
 ## In this talk
 
 - <div> Freestyle programming style </div> <!-- .element: class="fragment" -->
-- <div> **@free**, **@tagless**, **@module**, **@service** </div> <!-- .element: class="fragment" -->
+- <div> **@free**, **@tagless**, **@service** </div> <!-- .element: class="fragment" -->
 - <div> Effects </div><!-- .element: class="fragment" -->
-- <div> Integrations </div><!-- .element: class="fragment" -->
-- <div> Optimizations (iota Coproduct, stack-safe @tagless) </div> <!-- .element: class="fragment" -->
-- <div> RPC based Microservices <!-- .element: class="fragment" -->
+- <div> RPC based Microservices </div><!-- .element: class="fragment" -->
 
 ---
 
 ## Interface + Impl driven design
 
 ```scala
-@free trait Interact {
-  def ask(prompt: String): FS[String]
-  def tell(msg: String): FS[Unit]
+@tagless(true)
+trait ArithmeticService[F[_]] {
+  def add(value1: Int, value2: Int): F[Int]
+  def subtract(value1: Int, value2: Int): F[Int]
+  def multiply(value1: Int, value2: Int): F[Int]
+  def divide(value1: Int, value2: Int): F[Int]
 }
 
-implicit val handler: Interact.Handler[Future] = new Interact.Handler[Future] {
-  def ask(prompt: String): Future[String] = ???
-  def tell(msg: String): Future[Unit] = ???
+class ArithmeticServiceHandler[F[_] : Monad] extends ArithmeticService[F] {
+  override def add(value1: Int, value2: Int): F[Int] = (value1 + value2).pure[F]
+  override def subtract(value1: Int, value2: Int): F[Int] = (value1 - value2).pure[F]
+  override def multiply(value1: Int, value2: Int): F[Int] = (value1 * value2).pure[F]
+  override def divide(value1: Int, value2: Int): F[Int] = (value1 / value2).pure[F]
 }
-```
-
----
-
-## Boilerplate Reduction > Declaration
-
-```diff
-+ @free trait Interact {
-+  def ask(prompt: String): FS[String]
-+  def tell(msg: String): FS[Unit]
-+ }
-- sealed trait Interact[A]
-- case class Ask(prompt: String) extends Interact[String]
-- case class Tell(msg: String) extends Interact[Unit]
--
-- class Interacts[F[_]](implicit I: InjectK[Interact, F]) {
--  def tell(msg: String): Free[F, Unit] = Free.inject[Interact, F](Tell(msg))
--  def ask(prompt: String): Free[F, String] = Free.inject[Interact, F](Ask(prompt))
-- }
--
-- object Interacts {
--  implicit def interacts[F[_]](implicit I: InjectK[Interact, F]): Interacts[F] = new Interacts[F]
--  def apply[F[_]](implicit ev: Interacts[F]): Interacts[F] = ev
-- }
-```
-
----
-
-## Boilerplate Reduction > Composition
-
-```diff
-+ @module trait App {
-+  val exerciseOp: ExerciseOp
-+  val userOp: UserOp
-+  val userProgressOp: UserProgressOp
-+  val githubOp: GithubOp
-+ }
-- type C01[A] = Coproduct[ExerciseOp, UserOp, A]
-- type C02[A] = Coproduct[UserProgressOp, C01, A]
-- type ExercisesApp[A] = Coproduct[GithubOp, C02, A]
-- val exerciseAndUserInterpreter: C01 ~> M = exerciseOpsInterpreter or userOpsInterpreter
-- val userAndUserProgressInterpreter: C02 ~> M = userProgressOpsInterpreter or exerciseAndUserInterpreter
-- val allInterpreters: ExercisesApp ~> M = githubOpsInterpreter or userAndUserProgressInterpreter
 ```
 
 ---
@@ -95,7 +51,6 @@ implicit val handler: Interact.Handler[Future] = new Interact.Handler[Future] {
 ## Freestyle's Workflow
 
 - Declare your algebras <!-- .element: class="fragment" -->
-- Group them into modules <!-- .element: class="fragment" -->
 - Compose your programs <!-- .element: class="fragment" -->
 - Provide implicit implementations of each algebra Handler <!-- .element: class="fragment" -->
 - Run your programs at the edge of the world <!-- .element: class="fragment" -->
@@ -106,22 +61,19 @@ implicit val handler: Interact.Handler[Future] = new Interact.Handler[Future] {
 
 Declare your algebras
 
-```tut:silent
-import freestyle._
-import freestyle.tagless._
+```scala
+@tagless(true)
+trait ArithmeticService[F[_]] {
+  def add(value1: Int, value2: Int): F[Int]
+  def subtract(value1: Int, value2: Int): F[Int]
+  def multiply(value1: Int, value2: Int): F[Int]
+  def divide(value1: Int, value2: Int): F[Int]
+}
 
-object algebras {
-  /* Handles user interaction */
-  @free trait Interact {
-    def ask(prompt: String): FS[String]
-    def tell(msg: String): FS[Unit]
-  }
-
-  /* Validates user input */
-  @tagless trait Validation {
-    def minSize(s: String, n: Int): FS[Boolean]
-    def hasNumber(s: String): FS[Boolean]
-  }
+@tagless(true)
+trait ValidateService[F[_]] {
+  def isPositive(value: Int): F[Boolean]
+  def isZero(value: Int): F[Boolean]
 }
 ```
 
@@ -129,74 +81,17 @@ object algebras {
 
 ## Freestyle's Workflow
 
-Group them into modules
+Declare and compose programs
 
-```tut:silent
-import algebras._
-import freestyle.effects.error._
-import freestyle.effects.error.implicits._
-import freestyle.effects.state
-val st = state[List[String]]
-import st.implicits._
-
-object modules {
-
-  @module trait App {
-    val validation: Validation.StackSafe
-    val interact: Interact
-    val errorM : ErrorM
-    val persistence: st.StateM
-  }
-
-}
-```
-
----
-
-## Freestyle's Workflow
-
-Declare and compose programs inside `@free`, `@tagless` or `@module`
-
-```tut:silent
-import cats.implicits._
-
-object modules {
-
-  @module trait App {
-    val validation: Validation.StackSafe
-    val interact: Interact
-    val errorM : ErrorM
-    val persistence: st.StateM
-    
-    def program: FS.Seq[Unit] = 
-      for {
-        cat <- interact.ask("What's the kitty's name?")
-        isValid <- (validation.minSize(cat, 5), validation.hasNumber(cat)).mapN(_ && _) //may run ops in parallel
-        _ <- if (isValid) persistence.modify(cat :: _) else errorM.error(new RuntimeException("invalid name!"))
-        cats <- persistence.get
-        _ <- interact.tell(cats.toString)
-      } yield ()
-  }
-
-}
-```
-
----
-
-## Freestyle's Workflow
-
-Declare and compose programs anywhere else
-
-```tut:silent
-def program[F[_]]
-  (implicit I: Interact[F], R: st.StateM[F], E: ErrorM[F], V: Validation.StackSafe[F]): FreeS[F, Unit] = {
-  for {
-    cat <- I.ask("What's the kitty's name?")
-    isValid <- (V.minSize(cat, 5), V.hasNumber(cat)).mapN(_ && _) //may run ops in parallel
-    _ <- if (isValid) R.modify(cat :: _) else E.error(new RuntimeException("invalid name!"))
-    cats <- R.get
-    _ <- I.tell(cats.toString)
-  } yield ()
+```scala
+class ArithmeticProgram[F[_] : Async : ArithmeticService : ValidateService] {
+  def program(value1: Int, value2: Int, value3: Int): F[Int] = for {
+    result1 <- ArithmeticService[F].subtract(value1, value2)
+    isZero <- ValidateService[F].isZero(result1)
+    result2 <-
+      if (isZero) Async[F].raiseError(new RuntimeException("Division by zero!"))
+      else ArithmeticService[F].divide(value3, result1)
+  } yield result2
 }
 ```
 
@@ -206,21 +101,17 @@ def program[F[_]]
 
 Provide implicit evidence of your handlers to any desired target `M[_]`
 
-```tut:silent
-import cats.effect.IO
-import cats.effect.implicits._
-import cats.data.StateT
-
-type Target[A] = StateT[IO, List[String], A]
-
-implicit val interactHandler: Interact.Handler[Target] = new Interact.Handler[Target] {
-  def ask(prompt: String): Target[String] = tell(prompt) >> StateT.lift("Isidoro1".pure[IO])
-  def tell(msg: String): Target[Unit] = StateT.lift(IO { println(msg) })
+```scala
+class ArithmeticServiceHandler[F[_] : Async] extends ArithmeticService[F] {
+  override def add(value1: Int, value2: Int): F[Int] = (value1 + value2).pure[F]
+  override def subtract(value1: Int, value2: Int): F[Int] = (value1 - value2).pure[F]
+  override def multiply(value1: Int, value2: Int): F[Int] = (value1 * value2).pure[F]
+  override def divide(value1: Int, value2: Int): F[Int] = (value1 / value2).pure[F]
 }
 
-implicit val validationHandler: Validation.Handler[Target] = new Validation.Handler[Target] {
-  def minSize(s: String, n: Int): Target[Boolean] = StateT.lift((s.length >= n).pure[IO])
-  def hasNumber(s: String): Target[Boolean] = StateT.lift(s.exists(c => "0123456789".contains(c)).pure[IO])
+class ValidateServiceHandler[F[_] : Async] extends ValidateService[F] {
+  override def isPositive(value: Int): F[Boolean] = (value > 0).pure[F]
+  override def isZero(value: Int): F[Boolean] = (value == 0).pure[F]
 }
 ```
 
@@ -230,13 +121,17 @@ implicit val validationHandler: Validation.Handler[Target] = new Validation.Hand
 
 Run your program to your desired target `M[_]`
 
-```tut:book
-import modules._
-import freestyle.implicits._
-import cats.mtl.implicits._
+```scala
+object ArithmeticDemo extends App {
 
-val concreteProgram = program[App.Op]
-concreteProgram.interpret[Target].runEmpty.unsafeRunSync
+  implicit val arithmeticServiceForIO: ArithmeticServiceHandler[IO] = new ArithmeticServiceHandler[IO]
+  implicit val validateServiceForIO: ValidateServiceHandler[IO] = new ValidateServiceHandler[IO]
+
+  new ArithmeticProgram[IO].program(4, 2, 6).attempt.unsafeRunSync
+  // res0: Either[Throwable, Int] = Right(3)
+  new ArithmeticProgram[IO].program(3, 3, 10).attempt.unsafeRunSync
+  // res1: Either[Throwable, Int] = Left(java.lang.RuntimeException: Division by zero!)
+}
 ```
 
 ---
@@ -257,162 +152,91 @@ An alternative to monad transformers
 
 ---
 
-## Effects
+# RPC based Microservices
 
-Error
+---
 
-```tut:book
-import freestyle.effects.error._
-import freestyle.effects.implicits._
+## What is RPC (Remote Procedure Call)
 
-type EitherTarget[A] = Either[Throwable, A]
+<div> Allow call methods in a remote app server as local </div><!-- .element: class="fragment" -->
+<div> <img src="rpc.svg" style="margin-top: 1.5em ;width: 50%;"> </div><!-- .element: class="fragment" -->
 
-def shortCircuit[F[_]: ErrorM] =
-  for {
-    a <- FreeS.pure(1)
-    b <- ErrorM[F].error[Int](new RuntimeException("BOOM"))
-    c <- FreeS.pure(1)
-  } yield a + b + c
+---
 
-shortCircuit[ErrorM.Op].interpret[EitherTarget]
+## gRPC
 
-shortCircuit[ErrorM.Op].interpret[IO].attempt.unsafeRunSync
+- <div> open source high performance RPC framework </div> <!-- .element: class="fragment" -->
+- <div> Idiomatic client libraries in several languages </div> <!-- .element: class="fragment" -->
+- <div> Bi-directional streaming with http/2 based transport </div> <!-- .element: class="fragment" -->
+
+---
+
+## gRPC
+
+Main usage scenarios
+
+- <div> Connecting polyglot services in microservice-based architecture </div> <!-- .element: class="fragment" -->
+- <div> Connecting mobile devices to backend services </div> <!-- .element: class="fragment" -->
+
+---
+
+## gRPC
+
+Uses protocol buffers by default to:
+
+- <div> **Define IDL**: service interfaces and structure of message</div> <!-- .element: class="fragment" -->
+- <div> Serialize/deserialize structure data </div> <!-- .element: class="fragment" -->
+
+---
+
+## gRPC
+
+Define your proto message
+
+```protobuf
+message Person {
+  required string name = 1;
+  required int32 id = 2;
+  optional string email = 3;
+}
 ```
 
 ---
 
-## Effects
+## gRPC
 
-Option
+Define your gRPC service
 
-```tut:book
-import freestyle.effects.option._
-def programNone[F[_]: OptionM] =
-  for {
-    a <- FreeS.pure(1)
-    b <- OptionM[F].option[Int](None)
-    c <- FreeS.pure(1)
-  } yield a + b + c
+```protobuf
+// The greeter service definition.
+service Greeter {
+  // Sends a greeting
+  rpc SayHello (HelloRequest) returns (HelloReply);
+}
 
-programNone[OptionM.Op].interpret[Option]
+// The request message containing the user's name.
+message HelloRequest {
+  string name = 1;
+}
 
-programNone[OptionM.Op].interpret[List]
+// The response message containing the greetings
+message HelloReply {
+  string message = 1;
+}
 ```
 
 ---
-
-## Optimizations
-
-Freestyle provides optimizations for Free + Inject + Coproduct compositions as in
-[DataTypes a la Carte](http://www.cs.ru.nl/~W.Swierstra/Publications/DataTypesALaCarte.pdf)
-
----
-
-## Optimizations
-
-[A fast Coproduct type based on Iota](https://github.com/47deg/iota) with constant evaluation time based on
- `@scala.annotation.switch` on the Coproduct's internal indexed values.
-
-```tut:book
-import iota._
-import iota.debug.options.ShowTrees
-
-val interpreter: FSHandler[App.Op, Target] = CopK.FunctionK.summon
-```
-
----
-
-## Optimizations
-
-Freestyle does not suffer from degrading performance as the number of Algebras increases in contrast
-with `cats.data.EitherK`
-
-<canvas id="bench-coproduct"></canvas>
-
-<script>
-renderCoproductGraph();
-</script>
-
----
-
-## Optimizations
-
-Optimizations over the pattern matching of `FunctionK` for user defined algebras to translate them
-into a JVM switch with `@scala.annotation.switch`.
-
-<canvas id="bench-functionk"></canvas>
-
-<script>
-$( document ).ready(function() { renderFunctionKGraph(); });
-</script>
-
----
-
-## Optimizations
-
-Brings ADT-less stack safety to `@tagless` Algebras
-without rewriting interpreters to `Free[M, ?]` where `M[_]` is stack unsafe.
-
-```scala
-program[Option] // Stack-unsafe
-program[StackSafe[Option]#F] // lift handlers automatically to Free[Option, ?] without the `@free` ADTs overhead
-```
-
----
-
-## Integrations
-
-- <div> **Monix**: Target runtime and `async` effect integration. </div> <!-- .element: class="fragment" -->
-- <div> **Fetch**: Algebra to run fetch instances + Auto syntax `Fetch -> FS`. </div> <!-- .element: class="fragment" -->
-- <div> **FS2**: Embed FS2 `Stream` in Freestyle programs. </div> <!-- .element: class="fragment" -->
-- <div> **Doobie**: Embed `ConnectionIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
-- <div> **Slick**: Embed `DBIO` programs into Freestyle. </div> <!-- .element: class="fragment" -->
-- <div> **Akka Http**: `EntityMarshaller`s to return Freestyle programs in Akka-Http endpoints. </div> <!-- .element: class="fragment" -->
-- <div> **Play**: Implicit conversions to return Freestyle programs in Play Actions. </div> <!-- .element: class="fragment" -->
-- <div> **Twitter Util**: `Capture` instances for Twitter's `Future` & `Try`. </div> <!-- .element: class="fragment" -->
-- <div> **Finch**: Mapper instances to return Freestyle programs in Finch endpoints. </div> <!-- .element: class="fragment" -->
-- <div> **Http4s**: `EntityEncoder` instance to return Freestyle programs in Http4S endpoints. </div> <!-- .element: class="fragment" -->
-
----
-
-## Standalone libraries (WIP)
-
-- <div> **frees-kafka**: Consumer, Producer and Streaming algebras for Kafka </div> <!-- .element: class="fragment" -->
-- <div> **frees-cassandra**: Algebras for Cassandra API's, object mapper and type safe query compile time validation. </div> <!-- .element: class="fragment" -->
-- <div> **frees-rpc**: Purely functional RPC Services. </div> <!-- .element: class="fragment" -->
-- <div> **frees-microservices**: Purely functional monitored microservices. </div> <!-- .element: class="fragment" -->
-
----
-
 
 ## Freestyle RPC
 
-Define your proto messages
-
-```tut:silent:reset
+Define your message
+```scala
 import freestyle._
 import freestyle.rpc.protocol._
 
-trait ProtoMessages {
-  
+trait Messages {
   @message
-  case class Point(latitude: Int, longitude: Int)
-  
-  @message
-  case class Rectangle(lo: Point, hi: Point)
-  
-  @message
-  case class Feature(name: String, location: Point)
-  
-  @message
-  case class FeatureDatabase(feature: List[Feature])
-  
-  @message
-  case class RouteNote(location: Point, message: String)
-  
-  @message
-  case class RouteSummary(point_count: Int, feature_count: Int, distance: Int, elapsed_time: Int)
-
+  case class Person(name: String, id: Int, email: String)
 }
 ```
 
@@ -422,34 +246,35 @@ trait ProtoMessages {
 
 Expose Algebras as RPC services
 
-```tut:silent
-import monix.reactive.Observable
+```scala
+object protocol {
 
-@option(name = "java_package", value = "routeguide", quote = true)
-@option(name = "java_multiple_files", value = "true", quote = false)
-@option(name = "java_outer_classname", value = "RouteGuide", quote = true)
-object protocols extends ProtoMessages {
+  /**
+   * The request message containing the user's name.
+   * @param name User's name.
+   */
+  @message
+  case class HelloRequest(name: String)
 
-  @free
+  /**
+   * The response message,
+   * @param message Message containing the greetings.
+   */
+  @message
+  case class HelloReply(message: String)
+
   @service
-  trait RouteGuideService {
+  trait Greeter[F[_]] {
 
-    @rpc 
-    def getFeature(point: Point): FS[Feature]
+    /**
+     * The greeter service definition.
+     *
+     * @param request Say Hello Request.
+     * @return HelloReply.
+     */
+    @rpc(Avro) def sayHello(request: HelloRequest): F[HelloReply]
 
-    @rpc
-    @stream[ResponseStreaming.type]
-    def listFeatures(rectangle: Rectangle): FS[Observable[Feature]]
-
-    @rpc
-    @stream[RequestStreaming.type]
-    def recordRoute(points: Observable[Point]): FS[RouteSummary]
-
-    @rpc
-    @stream[BidirectionalStreaming.type]
-    def routeChat(routeNotes: Observable[RouteNote]): FS[Observable[RouteNote]]
   }
-
 }
 ```
 
@@ -459,80 +284,291 @@ object protocols extends ProtoMessages {
 
 - <div> **gRPC Server**: gRPC based server. </div> <!-- .element: class="fragment" -->
 - <div> **client** gRPC client. </div> <!-- .element: class="fragment" -->
-- <div> **.proto** files to interoperate with other langs. </div> <!-- .element: class="fragment" -->
+- <div> **IDL** files to interoperate with other langs. </div> <!-- .element: class="fragment" -->
 
 ---
 
-## Scala First, FP first approach to .proto generation
+## Frestyle RPC
+IDL generation
 
-```bash
-sbt protoGen
+- <div> **idlGen**: sbt plugin</div> <!-- .element: class="fragment" -->
+
+- <div> **Generation of IDL files** from Scala definition </div> <!-- .element: class="fragment" -->
+- <div> **Generation of source files** from IDL (only supported for Avro) </div> <!-- .element: class="fragment" -->
+
+---
+
+## Frestyle RPC
+
+Generation of IDL files from code
+
+```scala
+@option("java_multiple_files", true)
+@option("java_outer_classname", "Quickstart")
+@outputName("GreeterService")
+@outputPackage("quickstart")
+object service {
+
+  @message
+  case class HelloRequest(greeting: String)
+
+  @message
+  case class HelloResponse(reply: String)
+
+  @service
+  trait Greeter[F[_]] {
+
+    @rpc(Protobuf)
+    def sayHello(request: HelloRequest): F[HelloResponse]
+     
+    @rpc(Avro)
+    def sayHelloAvro(request: HelloRequest): F[HelloResponse]
+
+    @rpc(Protobuf)
+    @stream[ResponseStreaming.type]
+    def lotsOfReplies(request: HelloRequest): Observable[HelloResponse]
+  }
+  
+}
 ```
-
----
-
-## Scala FP First approach to **.proto** generation
-
-Find a complete example at [https://github.com/frees-io/freestyle-rpc-examples](https://github.com/frees-io/freestyle-rpc-examples)
 
 ```protobuf
 syntax = "proto3";
 
-option java_package = "routeguide";
 option java_multiple_files = true;
-option java_outer_classname = "RouteGuide";
+option java_outer_class_name = "Quickstart";
 
-message Point {
-   int32 latitude = 1;
-   int32 longitude = 2;
+package quickstart;
+
+message HelloRequest {
+  string greeting = 1;
 }
-...
-          
-service RouteGuideService {
-   rpc getFeature (Point) returns (Feature) {}
-   rpc listFeatures (Rectangle) returns (stream Feature) {}
-   rpc recordRoute (stream Point) returns (RouteSummary) {}
-   rpc routeChat (stream RouteNote) returns (stream RouteNote) {}
+
+message HelloResponse {
+  string reply = 1;
+}
+
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloResponse);
+  rpc LotsOfReplies (HelloRequest) returns (stream HelloResponse);
 }
 ```
 
 ---
 
-## Freestyle Microservices
+## Frestyle RPC
 
-Provides a reference impl over RPC optionally including Kafka & Cassandra Algebras and Handlers
-
-(WIP unfinished design)
+Generation of IDL files from code
 
 ```scala
+sbt "idlGen proto"
+```
 
-@free
-@service
-trait MyService {
+```protobuf
+syntax = "proto3";
 
-  @subscribe[Topic.type]
-  def listen(r: ConsumerRecord[Topic#Key, Topic#Value]): FS[Ack]
- 
+option java_multiple_files = true;
+option java_outer_class_name = "Quickstart";
+
+package quickstart;
+
+message HelloRequest {
+  string greeting = 1;
 }
 
-implicit def myServiceHandler
-  (implicit 
-     producer: Producer[Topic#Key, Topic#Value],
-     persistence: Persistence[MyModel]): RouteGuideService.Handler[IO] = 
-  new RouteGuideService.Handler[IO] {
+message HelloResponse {
+  string reply = 1;
+}
 
-    def listen(r: ConsumerRecord[Topic#Key, Topic#Value]): IO[Ack] = ???
- 
-  }
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloResponse);
+  rpc LotsOfReplies (HelloRequest) returns (stream HelloResponse);
+}
 ```
 
 ---
 
-## Freestyle Microservices OpsCenter
+## Frestyle RPC
 
-Lightweight monitoring of micro-services through automatic routes 
+Generation of IDL files from code
 
-![OpsCenter](//TODO)
+```scala
+sbt "idlGen avro"
+```
+
+```protobuf
+{
+  "namespace" : "quickstart",
+  "protocol" : "GreeterService",
+  "types" : [
+    {
+      "name" : "HelloRequest",
+      "type" : "record",
+      "fields" : [
+        {
+          "name" : "greeting",
+          "type" : "string"
+        }
+      ]
+    },
+    {
+      "name" : "HelloResponse",
+      "type" : "record",
+      "fields" : [
+        {
+          "name" : "reply",
+          "type" : "string"
+        }
+      ]
+    }
+  ],
+  "messages" : {
+    "sayHelloAvro" : {
+      "request" : [
+        {
+          "name" : "arg",
+          "type" : "HelloRequest"
+        }
+      ],
+      "response" : "HelloResponse"
+    }
+  }
+}
+
+```
+
+---
+
+## Frestyle RPC
+
+Generation of source files from IDL
+
+- <div> Only **Avro** is supported, in both **.avpr** (JSON) and **.avdl** (Avro IDL) formats</div> <!-- .element: class="fragment" -->
+
+```scala 
+sbt "srcGen avro"
+```
+<!-- .element: class="fragment" -->
+
+```scala
+sbt "srcGenFromJars"
+```
+<!-- .element: class="fragment" -->
+
+---
+
+## Frestyle RPC
+
+Patterns: Server
+
+```scala
+class GreeterServiceHandler[F[_] : Async](implicit S: Scheduler) extends GreeterService[F] {
+  override def sayHello(request: HelloRequest): F[HelloReply] = HelloReply(s"Hi ${request.name}!").pure[F]
+
+  override def lotsOfReplies(request: HelloRequest): Observable[HelloReply] =
+    Observable.fromIterable(1 to 5).map(index => HelloReply(s"Message number $index for ${request.name}"))
+
+  override def lotsOfGreetings(requests: Observable[HelloRequest]): F[HelloReply] =
+    requests.foldLeftL(List.empty[String]) {
+      case (names, request) =>
+        names :+ request.name
+    }
+      .map(names => HelloReply(s"Hello to ${names.mkString(",")}!"))
+      .to[F]
+
+  override def lotsOfMessages(requests: Observable[HelloRequest]): Observable[HelloReply] =
+    requests.flatMap(request =>
+      Observable.fromIterable(1 to 5).map(index => HelloReply(s"Message number $index for ${request.name}"))
+    )
+}
+```
+
+---
+
+## Frestyle RPC
+
+Patterns: Server
+
+```scala
+trait CommonRuntime {
+
+  implicit val S: Scheduler = monix.execution.Scheduler.Implicits.global
+
+}
+
+object gserver {
+
+  trait Implicits extends CommonRuntime {
+    implicit val greeterServiceHandler: GreeterServiceHandler[IO] = new GreeterServiceHandler[IO]
+
+    val grpcConfigs: List[GrpcConfig] = List(
+      AddService(GreeterService.bindService[IO])
+    )
+
+    implicit val serverW: ServerW = ServerW.default(8080, grpcConfigs)
+  }
+
+  object implicits extends Implicits
+}
+```
+
+---
+
+## Frestyle RPC
+
+Patterns: Running the server
+
+```scala
+object ServerApp extends App {
+
+  import gserver.implicits._
+
+  server[IO].unsafeRunSync()
+}
+```
+
+---
+
+## Frestyle RPC
+
+Patterns: Client
+
+```scala
+object gclient {
+
+  trait Implicits extends CommonRuntime {
+    val channelFor: ChannelFor = ChannelForAddress("localhost", 8080)
+
+    implicit val greeterServiceClient: GreeterService.Client[Task] = GreeterService.client[Task](channelFor)
+  }
+
+  object implicits extends Implicits
+}
+```
+
+---
+
+## Frestyle RPC
+
+Patterns: Running the client
+
+```scala
+object ClientApp extends App {
+
+  import gclient.implicits._
+
+  println(Await.result(greeterServiceClient.sayHello(HelloRequest("John")).runAsync, Duration.Inf))
+}
+```
+
+---
+
+## Frestyle RPC
+
+Other supported features
+
+- <div> **SSL/TLS encryption** </div> <!-- .element: class="fragment" -->
+- <div> **Metrics reporting** </div> <!-- .element: class="fragment" -->
 
 ---
 
@@ -540,7 +576,7 @@ Lightweight monitoring of micro-services through automatic routes
 
 - [**Cats**](http://typelevel.org/cats/)
 - [**Scalaz**](https://github.com/scalaz/scalaz)
-- [**KΛTEGORY**](http://kategory.io/)
+- [**ΛRROW**](http://arrow-kt.io/)
 - [**Eff**](http://atnos-org.github.io/eff/)
 - [**Fetch**](http://47deg.github.io/fetch/)
 - [**Simulacrum**](https://github.com/mpilquist/simulacrum)
@@ -579,6 +615,6 @@ Suhas Gaddam <[suhasgaddam](https://github.com/suhasgaddam)>
 ### Thanks! ###
 
 - [http://frees.io](http://frees.io)
-- [https://github.com/frees-io/freestyle-rpc-examples](https://github.com/frees-io/freestyle-rpc-examples)
+- [https://github.com/frees-io/freestyle-rpc/tree/master/modules/examples](https://github.com/frees-io/freestyle-rpc/tree/master/modules/examples)
 
 
