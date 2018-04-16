@@ -277,6 +277,20 @@ body {
   color: #50fa7b;
 }
 
+.reveal .slides section:nth-child(23) {
+    white-space: nowrap;
+    overflow-y: auto;
+    text-align: center;
+}
+
+.reveal .slides section:nth-child(23) pre {
+    display: inline-block;
+}
+
+.reveal .slides section:nth-child(23) pre code {
+    height: 580px;
+}
+
 .reveal pre code {
   border: display: block;
   padding: 30px;
